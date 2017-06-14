@@ -3,7 +3,8 @@
     @date    2017/6/14
     @version created
     @email   yuquanjie13@gmail.com
-    @descrip resize image from 2400 * 3200 to 1200 * 1600
+    @descrip capture image randomly from full size, eg. 2400 * 3200 to small size,
+             eg.1200 * 1600
 """
 import cv2
 
