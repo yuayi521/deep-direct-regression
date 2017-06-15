@@ -21,7 +21,7 @@ import tensorflow as tf
 
 sys.path.append('/home/yuquanjie/Documents/deep-direct-regression/tools')
 HUBER_DELTA = 1.0
-gpu_id = '1'
+gpu_id = '0'
 os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
 
@@ -76,7 +76,44 @@ def weighted_hinge(y_true, y_pred):
     return weighted_hinge_loss
 """
 
+
+def new_smooth(y_true, y_pred):
+    """
+    Compute regression loss, loss / batch_size
+    :param y_true: ground truth of regression and classification
+                    tensor shape (batch_size, 80, 80, 9)
+                    (:, :, :, 0:8) is regression label
+                    (:, :, :, 8) is classification label
+    :param y_pred: predicted value of regression
+    :return: every pixel loss, average loss of 8 feature map
+             tensor shape(batch_size, 80, 80)
+    """
+    # expand dimension of y_true, from (batch_size, 80, 80, 9) to (batch_size, 80, 80, 16)
+    sub = tf.expand_dims(y_true[:, :, :, 8], axis=3)
+    for i in xrange(7):
+        y_true = tf.concat([y_true, sub], axis=3)
+    abs_val = tf.abs(y_true[:, :, :, 0:8] - y_pred)
+    smooth = tf.where(tf.greater(1.0, abs_val),
+                      0.5 * abs_val ** 2,
+                      abs_val - 0.5)
+    loss = tf.where(tf.greater(y_true[0, 0, 0, 8:16], 0),
+                    smooth,
+                    0.0 * smooth)
+    # loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
+    #               y_true[:, :, :, 8:16],
+    #               0 * y_true[:, :, :, 8:16]) * smooth
+    loss = tf.reduce_mean(loss, axis=-1)
+    # loss_batch = loss / tf.to_float(tf.shape(y_true)[0])
+    return loss
+
+
 def smoothL1(y_true, y_pred):
+    """
+    Compute regresstion loss, loss didn't not divide batch_size
+    :param y_true:
+    :param y_pred:
+    :return:
+    """
     # print y_true
     import tensorflow as tf
     # 1. slice
@@ -94,15 +131,15 @@ def smoothL1(y_true, y_pred):
     y_true = tf.concat([y_true, tmp], 3)
     y_true = tf.concat([y_true, tmp], 3)
     # print y_true
-    x = K.abs(y_true[:, :, :, 0:8] - y_pred)
+    abs_val = K.abs(y_true[:, :, :, 0:8] - y_pred)
     if K._BACKEND == 'tensorflow':
         import tensorflow as tf
-        x = tf.where(tf.greater(HUBER_DELTA, x),
-                     0.5 * x ** 2,
-                     HUBER_DELTA * (x - 0.5 * HUBER_DELTA))
+        smooth = tf.where(tf.greater(HUBER_DELTA, abs_val),
+                     0.5 * abs_val ** 2,
+                     HUBER_DELTA * (abs_val - 0.5 * HUBER_DELTA))
         x = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
                      y_true[:, :, :, 8:16],
-                     0 * y_true[:, :, :, 8:16]) * x
+                     0 * y_true[:, :, :, 8:16]) * smooth
         # return  K.sum(x)
         return K.mean(x, axis=-1)
 
@@ -179,7 +216,7 @@ def multi_task(input_tensor=None, trainable=False):
                                 strides=(2, 2), padding='valid', use_bias=False,
                                 name='upscore16')(fuse_pool3)
     ##########################################################################
-    ####### shared layer
+    # shared layer
     ##########################################################################
     x_clas = Convolution2D(1, (1, 1), strides=(1, 1), padding='same', name='out_class')(upscore16)
     x = Convolution2D(128, (1, 1), strides=(1, 1), padding='same', activation='relu')(upscore16)
@@ -193,19 +230,19 @@ if __name__ == '__main__':
     img_input = Input((320, 320, 3))
     # define network
     multi = multi_task(img_input, trainable=True)
-    # multask_model = Model(img_input, multi[0:2])
-    multask_model = Model(img_input, multi[0])
+    multask_model = Model(img_input, multi[0:2])
+    # multask_model = Model(img_input, multi[0])
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # compile model
     # multask_model.compile(loss=[my_hinge, smoothL1], optimizer=sgd)
-    multask_model.compile(loss=[my_hinge], optimizer=sgd)
+    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # read training data from h5 file
-    file = h5py.File('dataset/train_dataset-1500-negIsZero.h5', 'r')
-    X = file['X_train'][:]
-    Y_1 = file['Y_train_cls'][:]
-    Y_2 = file['Y_train_merge'][:]
-    file.close()
+    file_read = h5py.File('dataset/train_dataset-1500.h5', 'r')
+    X = file_read['X_train'][:]
+    Y_1 = file_read['Y_train_cls'][:]
+    Y_2 = file_read['Y_train_merge'][:]
+    file_read.close()
     Y = [Y_1, Y_2]
     print 'traning data shape ------'
     print X.shape
@@ -223,10 +260,11 @@ if __name__ == '__main__':
     print Y_val_2.shape
     file.close()
     # saved model file path and name
-    filepath = "model/loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
+    filepath = "model_2017-06-14/loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True,
                                  mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    # loss_class = multask_model.fit(X, Y_1, batch_size=32, epochs=5000, callbacks = callbacks_list, validation_data=(X_val, Y_val_1), verbose=1)
-    loss_class = multask_model.fit(X, Y_1, batch_size=32, epochs=5000, callbacks=callbacks_list, verbose=1)
+    loss_class = multask_model.fit(X, Y, batch_size=8, epochs=5000, callbacks=callbacks_list,
+                                   validation_data=(X_val, Y_val), verbose=1)
+    # loss_class = multask_model.fit(X, Y_1, batch_size=32, epochs=5000, callbacks=callbacks_list, verbose=1)
