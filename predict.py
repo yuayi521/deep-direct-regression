@@ -26,7 +26,7 @@ import tools.point_check as point_check
 
 sys.path.append('/home/yuquanjie/Documents/deep-direct-regression/tools')
 HUBER_DELTA = 1.0
-gpu_id = '2'
+gpu_id = '3'
 os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
 
@@ -311,12 +311,12 @@ if __name__ == '__main__':
     # define network
     multi = multi_task(img_input, trainable=True)
     # multask_model = Model(img_input, multi[0:2])
-    multask_model = Model(img_input, multi[0])
+    multask_model = Model(img_input, multi[0:2])
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # compile model
     # multask_model.compile(loss=[my_hinge, smoothL1], optimizer=sgd)
-    multask_model.compile(loss=[my_hinge], optimizer=sgd)
+    multask_model.compile(loss=[my_hinge, smoothL1], optimizer=sgd)
     # read test data from h5 file
     """
     file = h5py.File('dataset/train_dataset-1500.h5', 'r')
@@ -339,15 +339,21 @@ if __name__ == '__main__':
 
         # load model
         # nigative label is -1
-        final_model = load_model('model/loss-decrease-1070-0.12.hdf5', custom_objects={'my_hinge': my_hinge})
+        final_model = load_model('model_2017-06-14/loss-decrease-378-0.64.hdf5', custom_objects={'my_hinge': my_hinge,
+                                                                                                 'smoothL1': smoothL1})
+        # final_model = load_model('model_2017-06-14/loss-decrease-378-0.64.hdf5')
         # nigative label is 0
         # final_model = load_model('model/loss-decrease-1206-0.08.hdf5', custom_objects={'my_hinge': my_hinge})
         # predict
-        predict_rel = final_model.predict_on_batch(X)
+        predict_all = final_model.predict_on_batch(X)
+        # classification result
+        predict_rel = predict_all[0]
+        # regression result
+        predict_regr = predict_all[1]
         # reduce first and last dimension
         predict_rel = np.sum(predict_rel, axis=-1)
         predict_rel = np.sum(predict_rel, axis=0)
-        print predict_rel
+        # print predict_rel
 
         # pos_pred is a tuple
         # negative lable is -1
