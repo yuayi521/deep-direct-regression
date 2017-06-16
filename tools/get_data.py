@@ -6,6 +6,16 @@ from PIL import Image, ImageDraw
 
 
 def get_raw_data(input_path):
+    """
+    process image and txt file, for each iamge file, reading corresponding txt file,
+    getting all text region's coordinates and number of text region
+    :param input_path:
+    :return: 1) a list, each element is a dictionary
+             'imagePath'
+             'boxCoord'
+             'boxNum'
+             2) number of the txt and image file have processed
+    """
     # define variable for returning
     all_imgs = []
     coords = []
