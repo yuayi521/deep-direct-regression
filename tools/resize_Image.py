@@ -50,42 +50,54 @@ def capture_image_random(imgs):
                     mydraw.draw_rectangle_image(im, roi_range)
 
 
-def get_h_w_range(img, center):
+def get_captured_img_toplef_downrig_coord(im, c):
     """
-    according text region center to capture a 1000 * 1000 image
-    should consider boundary case
-    :param img:
-    :param center:
+    according text region center coordinate to capture a 1000 * 1000 image
+    should consider some boundary cases
+    :param im:
+    :param c: cneter coordinate of text region
     :return:
     """
-    # near to top left corner
-    if center[0] - 500 < 0 and center[1] - 500 < 0:
-        print 'near to top left corner'
+    if c[0] - 500 < 0 and c[1] - 500 < 0:
+        print '1'
         top_left = [0, 0]
         down_rig = [1000, 1000]
-    # near to down left corner
-    elif center[1] - 500 > 0 and center[0] - 500 < 0:
-        print 'near to down left corner'
-        top_left = [0, img.shape[0] - 1000]
-        down_rig = [1000, img.shape[0]]
-    # near to top right
-    elif center[0] + 500 > img.shape[1] and center[1] + 500 < img.shape[0]:
-        print 'near to top right'
-        top_left = [img.shape[1] - 1000, 0]
-        down_rig = [img.shape[1], 1000]
-    # near to down right
-    elif center[0] + 500 > img.shape[1] and center[1] + 500 > img.shape[0]:
-        print 'near to down right'
-        top_left = [img.shape[1] - 1000, img.shape[0] - 1000]
-        down_rig = [img.shape[1], img.shape[0]]
+    elif c[1] - 500 < 0 and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
+        print '2'
+        top_left = [c[0] - 500, 0]
+        down_rig = [c[0] + 500, 1000]
+    elif c[0] - 500 < 0 and (c[1] - 500 > 0 and c[1]  + 500 < im.shape[0]):
+        print '3'
+        top_left = [0, c[1] - 500]
+        down_rig = [1000, c[1] + 500]
+    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
+        print '4'
+        top_left = [im.shape[1] - 1000, 0]
+        down_rig = [im.shape[1], 1000]
+    elif c[0] + 500 > im.shape[1] and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
+        print '5'
+        top_left = [im.shape[1] - 1000, c[1] - 500]
+        down_rig = [im.shape[1], c[1] + 500]
+    elif c[0] - 500 < 0 and c[1] + 500 > im.shape[0]:
+        print '6'
+        top_left = [0, im.shape[0] - 1000]
+        down_rig = [1000, im.shape[0]]
+    elif c[1] + 500 > im.shape[0] and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
+        print '7'
+        top_left = [c[0] - 500, im.shap[0] - 1000]
+        down_rig = [c[0] + 500, im.shape[0]]
+    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
+        print '8'
+        top_left = [im.shape[1] - 1000, im.shape[0] - 1000]
+        down_rig = [im.shape[1], im.shape[0]]
     else:
-        print 'yes'
-        top_left = [center[0] - 500, center[1] - 500]
-        down_rig = [center[0] + 500, center[1] + 500]
+        print '9'
+        top_left = [c[0] - 500, c[1] - 500]
+        down_rig = [c[0] + 500, c[1] + 500]
 
     print top_left
     print down_rig
-    mydraw.draw_rectangle_image(img, top_left, down_rig)
+    mydraw.draw_rectangle_image(im, top_left, down_rig)
     return top_left, down_rig
 
 
@@ -111,7 +123,7 @@ def capture_image_from_textcenter(imgs):
                     mydraw.draw_text_on_image(im, text_center)
                 print coord
                 print text_center
-                height_weight_range = get_h_w_range(im, text_center)
+                height_weight_range = get_captured_img_toplef_downrig_coord(im, text_center)
 
 if __name__ == '__main__':
     all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2'
