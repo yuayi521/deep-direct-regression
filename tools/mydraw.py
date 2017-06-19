@@ -5,14 +5,17 @@ import numpy as np
 
 def draw_rectangle_image(im, top_lef, dow_rig):
     """
+    accroding to top_left and down_right coordinates to draw a rectangle on a iamge
     :param im: cv2.imread() function's returned value
                numpy.ndarray
-    :param top_lef:
-    :param dow_rig:
+    :param top_lef: top left corner coordinates
+    :param dow_rig: down right corner coordinates
     :return:
     """
+
     img_draw = Image.fromarray(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(img_draw)
+    # calculate top_right and down_left corner coordinates
     top_rig = [dow_rig[0], top_lef[1]]
     dow_lef = [top_lef[0], dow_rig[1]]
     draw.polygon([(top_lef[0], top_lef[1]), (top_rig[0], top_rig[1]),
