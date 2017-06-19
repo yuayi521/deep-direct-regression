@@ -12,6 +12,7 @@ import tools.mydraw as mydraw
 import random as rd
 import re
 import string
+from shapely.geometry import Polygon
 
 
 def capture_image_random(imgs):
@@ -58,53 +59,44 @@ def get_captured_img_toplef_downrig_coord(im, c):
     :param c: cneter coordinate of text region
     :return:
     """
+    vis = True
     if c[0] - 500 < 0 and c[1] - 500 < 0:
-        print '1'
         top_left = [0, 0]
         down_rig = [1000, 1000]
     elif c[1] - 500 < 0 and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
-        print '2'
         top_left = [c[0] - 500, 0]
         down_rig = [c[0] + 500, 1000]
-    elif c[0] - 500 < 0 and (c[1] - 500 > 0 and c[1]  + 500 < im.shape[0]):
-        print '3'
+    elif c[0] - 500 < 0 and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
         top_left = [0, c[1] - 500]
         down_rig = [1000, c[1] + 500]
     elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
-        print '4'
         top_left = [im.shape[1] - 1000, 0]
         down_rig = [im.shape[1], 1000]
     elif c[0] + 500 > im.shape[1] and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
-        print '5'
         top_left = [im.shape[1] - 1000, c[1] - 500]
         down_rig = [im.shape[1], c[1] + 500]
     elif c[0] - 500 < 0 and c[1] + 500 > im.shape[0]:
-        print '6'
         top_left = [0, im.shape[0] - 1000]
         down_rig = [1000, im.shape[0]]
     elif c[1] + 500 > im.shape[0] and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
-        print '7'
-        top_left = [c[0] - 500, im.shap[0] - 1000]
+        top_left = [c[0] - 500, im.shape[0] - 1000]
         down_rig = [c[0] + 500, im.shape[0]]
     elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
-        print '8'
         top_left = [im.shape[1] - 1000, im.shape[0] - 1000]
         down_rig = [im.shape[1], im.shape[0]]
     else:
-        print '9'
         top_left = [c[0] - 500, c[1] - 500]
         down_rig = [c[0] + 500, c[1] + 500]
 
-    print top_left
-    print down_rig
-    mydraw.draw_rectangle_image(im, top_left, down_rig)
+    if vis:
+        mydraw.draw_rectangle_image(im, top_left, down_rig, "blue")
     return top_left, down_rig
 
 
 def capture_image_from_textcenter(imgs):
     """
     according to text region center, generate  1000 * 1000 images
-    :param imgs: a list, each elements is a dictionary
+    :param imgs: a list(array), each elements is a dictionary
                  'imagePath' :
                  'boxCoord' :
                  'boxNum' :
@@ -120,10 +112,40 @@ def capture_image_from_textcenter(imgs):
                 text_center = [(string.atof(coord[0]) + string.atof(coord[4])) / 2,
                                (string.atof(coord[1]) + string.atof(coord[5])) / 2]
                 if visiual:
-                    mydraw.draw_text_on_image(im, text_center)
+                    mydraw.draw_text_on_image(im, text_center, "OOO")
                 print coord
                 print text_center
-                height_weight_range = get_captured_img_toplef_downrig_coord(im, text_center)
+                [top_lef, dow_rig] = get_captured_img_toplef_downrig_coord(im, text_center)
+                print top_lef, dow_rig
+                print img['boxNum']
+                for polygon in img['boxCoord']:
+                    x1 = string.atof(polygon[0])
+                    x2 = string.atof(polygon[2])
+                    x3 = string.atof(polygon[4])
+                    x4 = string.atof(polygon[6])
+
+                    y1 = string.atof(polygon[1])
+                    y2 = string.atof(polygon[3])
+                    y3 = string.atof(polygon[5])
+                    y4 = string.atof(polygon[7])
+                    raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
+
+                    top_rig = [dow_rig[0], top_lef[1]]
+                    dow_lef = [top_lef[0], dow_rig[1]]
+                    cap_img_poly = Polygon([(top_lef[0], top_lef[1]),
+                                            (dow_lef[0], dow_lef[1]),
+                                            (dow_rig[0], dow_rig[1]),
+                                            (top_rig[0], top_rig[1])])
+
+                    if raw_img_poly.intersects(cap_img_poly):
+                        inter = raw_img_poly.intersection(cap_img_poly)
+                        list_my = list(inter.exterior.coords)
+                        mydraw.draw_rectangle_image(im, [list_my[0][0], list_my[0][1]],
+                                                    [list_my[2][0], list_my[2][1]], "black")
+                        print raw_img_poly
+                        print cap_img_poly
+                        print inter
+
 
 if __name__ == '__main__':
     all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2'
