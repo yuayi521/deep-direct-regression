@@ -20,7 +20,7 @@ import re
 import numpy as np
 import cv2
 import os
-from PIL import Image, ImageFont, ImageDraw
+from PIL import Image, ImageDraw
 import tools.get_data as get_data
 import tools.point_check as point_check
 
