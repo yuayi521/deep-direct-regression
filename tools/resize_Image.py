@@ -57,9 +57,9 @@ def get_captured_img_toplef_downrig_coord(im, c):
     should consider some boundary cases
     :param im:
     :param c: cneter coordinate of text region
-    :return:
+    :return: return top left and down right corner coordinates of captured image
     """
-    vis = True
+    vis = False
     if c[0] - 500 < 0 and c[1] - 500 < 0:
         top_left = [0, 0]
         down_rig = [1000, 1000]
@@ -102,22 +102,37 @@ def capture_image_from_textcenter(imgs):
                  'boxNum' :
     :return:
     """
-    visiual = True
+    visiual = False
     for img in imgs:
         im = cv2.imread(img['imagePath'])
+        print img['imagePath']
         if im.shape[0] > 1000 and im.shape[1] > 1000:
-            print img['imagePath']
+            idx = 1
             for coord in img['boxCoord']:
                 # calculate center of text region
                 text_center = [(string.atof(coord[0]) + string.atof(coord[4])) / 2,
                                (string.atof(coord[1]) + string.atof(coord[5])) / 2]
                 if visiual:
                     mydraw.draw_text_on_image(im, text_center, "OOO")
-                print coord
-                print text_center
+                # get captured image's top-left and down right coordinates
                 [top_lef, dow_rig] = get_captured_img_toplef_downrig_coord(im, text_center)
-                print top_lef, dow_rig
-                print img['boxNum']
+                # calculate top-right and down-left coordinates
+                top_rig = [dow_rig[0], top_lef[1]]
+                dow_lef = [top_lef[0], dow_rig[1]]
+                # using shapely lib define a captured image Polygon object
+                cap_img_poly = Polygon([(top_lef[0], top_lef[1]), (dow_lef[0], dow_lef[1]),
+                                        (dow_rig[0], dow_rig[1]), (top_rig[0], top_rig[1])])
+                # generate captured image file name
+                pattern = re.compile(r'image_\d*')
+                search = pattern.search(img['imagePath'])
+                image_name = search.group()
+                jpgname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
+                          + image_name + '_' + bytes(idx) + '.jpg'
+                # save image
+                # note : 1st dimension is height, 2nd dimension is width
+                # forget the 1st dimension is height again
+                cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
+
                 for polygon in img['boxCoord']:
                     x1 = string.atof(polygon[0])
                     x2 = string.atof(polygon[2])
@@ -130,25 +145,36 @@ def capture_image_from_textcenter(imgs):
                     y4 = string.atof(polygon[7])
                     raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
 
-                    top_rig = [dow_rig[0], top_lef[1]]
-                    dow_lef = [top_lef[0], dow_rig[1]]
-                    cap_img_poly = Polygon([(top_lef[0], top_lef[1]),
-                                            (dow_lef[0], dow_lef[1]),
-                                            (dow_rig[0], dow_rig[1]),
-                                            (top_rig[0], top_rig[1])])
-
                     if raw_img_poly.intersects(cap_img_poly):
                         inter = raw_img_poly.intersection(cap_img_poly)
-                        list_my = list(inter.exterior.coords)
-                        mydraw.draw_rectangle_image(im, [list_my[0][0], list_my[0][1]],
-                                                    [list_my[2][0], list_my[2][1]], "black")
-                        print raw_img_poly
-                        print cap_img_poly
-                        print inter
+                        if inter.area == 0:
+                            break
+                        list_inter = list(inter.exterior.coords)
+
+                        if visiual:
+                            mydraw.draw_polygon(im, [list_inter[0][0], list_inter[0][1]],
+                                                [list_inter[1][0], list_inter[1][1]],
+                                                [list_inter[2][0], list_inter[2][1]],
+                                                [list_inter[3][0], list_inter[3][1]])
+
+                        txtname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
+                                  + image_name + '_' + bytes(idx) + '.txt'
+                        # writting pattern is appending
+                        txtwrite = open(txtname, 'a')
+                        strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(bytes(list_inter[0][0] - top_lef[0]),
+                                                                               bytes(list_inter[0][1] - top_lef[1]),
+                                                                               bytes(list_inter[1][0] - top_lef[0]),
+                                                                               bytes(list_inter[1][1] - top_lef[1]),
+                                                                               bytes(list_inter[2][0] - top_lef[0]),
+                                                                               bytes(list_inter[2][1] - top_lef[1]),
+                                                                               bytes(list_inter[3][0] - top_lef[0]),
+                                                                               bytes(list_inter[3][1] - top_lef[1]))
+                        txtwrite.write(strcoord)
+                txtwrite.close()
+                idx += 1
 
 
 if __name__ == '__main__':
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2'
-                                                 '/train/part1')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
+    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/test')
     capture_image_from_textcenter(all_imgs)
-    print type(all_imgs)
