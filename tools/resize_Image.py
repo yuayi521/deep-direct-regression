@@ -139,7 +139,6 @@ def capture_image_from_textcenter(imgs):
                 cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
 
                 for polygon in img['boxCoord']:
-                    print polygon
                     x1 = string.atof(polygon[0])
                     x2 = string.atof(polygon[2])
                     x3 = string.atof(polygon[4])
@@ -161,6 +160,7 @@ def capture_image_from_textcenter(imgs):
 
                         if visiual:
                             # show raw image, text region, text center
+                            """
                             img_1 = cv2.imread(img['imagePath'])
                             img_draw = Image.fromarray(cv2.cvtColor(img_1, cv2.COLOR_BGR2RGB))
                             draw = ImageDraw.Draw(img_draw)
@@ -171,7 +171,10 @@ def capture_image_from_textcenter(imgs):
                             img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
                             cv2.imshow('img', cv2.resize(img_draw, (800, 800)))
                             cv2.waitKey(0)
+                            """
 
+                            print inter
+                            print len(list_inter)
                             # show captured image, new text region(intersection between text region and captured image),
                             # 4 coordinates clockwise
                             jpg = cv2.imread(jpgname)
