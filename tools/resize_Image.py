@@ -12,7 +12,10 @@ import tools.mydraw as mydraw
 import random as rd
 import re
 import string
+from PIL import Image, ImageFont, ImageDraw
+import numpy as np
 from shapely.geometry import Polygon
+fnt = ImageFont.truetype('/home/yuquanjie/Download/FreeMono.ttf', size=40)
 
 
 def capture_image_random(imgs):
@@ -60,33 +63,33 @@ def get_captured_img_toplef_downrig_coord(im, c):
     :return: return top left and down right corner coordinates of captured image
     """
     vis = False
-    if c[0] - 500 < 0 and c[1] - 500 < 0:
+    if c[0] - 725 < 0 and c[1] - 725 < 0:
         top_left = [0, 0]
-        down_rig = [1000, 1000]
-    elif c[1] - 500 < 0 and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
-        top_left = [c[0] - 500, 0]
-        down_rig = [c[0] + 500, 1000]
-    elif c[0] - 500 < 0 and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
-        top_left = [0, c[1] - 500]
-        down_rig = [1000, c[1] + 500]
-    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
-        top_left = [im.shape[1] - 1000, 0]
-        down_rig = [im.shape[1], 1000]
-    elif c[0] + 500 > im.shape[1] and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
-        top_left = [im.shape[1] - 1000, c[1] - 500]
-        down_rig = [im.shape[1], c[1] + 500]
-    elif c[0] - 500 < 0 and c[1] + 500 > im.shape[0]:
-        top_left = [0, im.shape[0] - 1000]
-        down_rig = [1000, im.shape[0]]
-    elif c[1] + 500 > im.shape[0] and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
-        top_left = [c[0] - 500, im.shape[0] - 1000]
-        down_rig = [c[0] + 500, im.shape[0]]
-    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
-        top_left = [im.shape[1] - 1000, im.shape[0] - 1000]
+        down_rig = [1500, 1500]
+    elif c[1] - 725 < 0 and (c[0] - 725 > 0 and c[0] + 725 < im.shape[1]):
+        top_left = [c[0] - 725, 0]
+        down_rig = [c[0] + 725, 1500]
+    elif c[0] - 725 < 0 and (c[1] - 725 > 0 and c[1] + 725 < im.shape[0]):
+        top_left = [0, c[1] - 725]
+        down_rig = [1000, c[1] + 725]
+    elif c[0] + 725 > im.shape[1] and c[1] + 725 > im.shape[0]:
+        top_left = [im.shape[1] - 1500, 0]
+        down_rig = [im.shape[1], 1500]
+    elif c[0] + 725 > im.shape[1] and (c[1] - 725 > 0 and c[1] + 725 < im.shape[0]):
+        top_left = [im.shape[1] - 1500, c[1] - 725]
+        down_rig = [im.shape[1], c[1] + 725]
+    elif c[0] - 725 < 0 and c[1] + 725 > im.shape[0]:
+        top_left = [0, im.shape[0] - 1500]
+        down_rig = [1500, im.shape[0]]
+    elif c[1] + 725 > im.shape[0] and (c[0] - 725 > 0 and c[0] + 725 < im.shape[1]):
+        top_left = [c[0] - 725, im.shape[0] - 1500]
+        down_rig = [c[0] + 725, im.shape[0]]
+    elif c[0] + 725 > im.shape[1] and c[1] + 725 > im.shape[0]:
+        top_left = [im.shape[1] - 1500, im.shape[0] - 1500]
         down_rig = [im.shape[1], im.shape[0]]
     else:
-        top_left = [c[0] - 500, c[1] - 500]
-        down_rig = [c[0] + 500, c[1] + 500]
+        top_left = [c[0] - 725, c[1] - 725]
+        down_rig = [c[0] + 725, c[1] + 725]
 
     if vis:
         mydraw.draw_rectangle_image(im, top_left, down_rig, "blue")
@@ -102,18 +105,19 @@ def capture_image_from_textcenter(imgs):
                  'boxNum' :
     :return:
     """
-    visiual = False
+    visiual = True
     for img in imgs:
         im = cv2.imread(img['imagePath'])
-        print img['imagePath']
-        if im.shape[0] > 1000 and im.shape[1] > 1000:
+        imgfilepath = img['imagePath']
+        # print img['imagePath']
+        # if im.shape[0] > 1000 and im.shape[1] > 1000:
+        if im.shape[0] > 1500 and im.shape[1] > 1500:
+
             idx = 1
             for coord in img['boxCoord']:
                 # calculate center of text region
                 text_center = [(string.atof(coord[0]) + string.atof(coord[4])) / 2,
                                (string.atof(coord[1]) + string.atof(coord[5])) / 2]
-                if visiual:
-                    mydraw.draw_text_on_image(im, text_center, "OOO")
                 # get captured image's top-left and down right coordinates
                 [top_lef, dow_rig] = get_captured_img_toplef_downrig_coord(im, text_center)
                 # calculate top-right and down-left coordinates
@@ -124,7 +128,8 @@ def capture_image_from_textcenter(imgs):
                                         (dow_rig[0], dow_rig[1]), (top_rig[0], top_rig[1])])
                 # generate captured image file name
                 pattern = re.compile(r'image_\d*')
-                search = pattern.search(img['imagePath'])
+                # search = pattern.search(img['imagePath'])
+                search = pattern.search(imgfilepath)
                 image_name = search.group()
                 jpgname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
                           + image_name + '_' + bytes(idx) + '.jpg'
@@ -134,6 +139,7 @@ def capture_image_from_textcenter(imgs):
                 cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
 
                 for polygon in img['boxCoord']:
+                    print polygon
                     x1 = string.atof(polygon[0])
                     x2 = string.atof(polygon[2])
                     x3 = string.atof(polygon[4])
@@ -149,13 +155,47 @@ def capture_image_from_textcenter(imgs):
                         inter = raw_img_poly.intersection(cap_img_poly)
                         if inter.area == 0:
                             break
+                        # inter maybe a hexagon, image_1004.jpg, so choose a maximux aear quadrangle as final result
+                        # captured image size changed from 1000 * 1000 to 1500 * 1500
                         list_inter = list(inter.exterior.coords)
 
                         if visiual:
-                            mydraw.draw_polygon(im, [list_inter[0][0], list_inter[0][1]],
-                                                [list_inter[1][0], list_inter[1][1]],
-                                                [list_inter[2][0], list_inter[2][1]],
-                                                [list_inter[3][0], list_inter[3][1]])
+                            # show raw image, text region, text center
+                            """
+                            print img['imagePath']
+                            print 'show_1'
+                            img_1 = cv2.imread(img['imagePath'])
+                            img_draw = Image.fromarray(cv2.cvtColor(img_1, cv2.COLOR_BGR2RGB))
+                            draw = ImageDraw.Draw(img_draw)
+                            draw.polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)],
+                                         outline="red", fill="blue")
+                            draw.text((text_center[0], text_center[1]), "center", font=fnt)
+                            img_draw = np.array(img_draw)
+                            img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
+                            cv2.imshow('img', cv2.resize(img_draw, (800, 800)))
+                            cv2.waitKey(0)
+                            """
+
+                            # show captured image, new text region(intersection between text region and captured image),
+                            # 4 coordinates clockwise
+                            print 'show_2'
+                            img = cv2.imread(jpgname)
+                            img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+                            draw = ImageDraw.Draw(img_draw)
+                            draw.polygon([(float(list_inter[0][0] - top_lef[0]), float(list_inter[0][1] - top_lef[1])),
+                                          (float(list_inter[1][0] - top_lef[0]), float(list_inter[1][1] - top_lef[1])),
+                                          (float(list_inter[2][0] - top_lef[0]), float(list_inter[2][1] - top_lef[1])),
+                                          (float(list_inter[3][0] - top_lef[0]), float(list_inter[3][1] - top_lef[1]))],
+                                         outline="red", fill="blue")
+
+                            draw.text([float(list_inter[0][0] - top_lef[0]), float(list_inter[0][1] - top_lef[1])], "TOP_LEFT", font=fnt)
+                            draw.text([float(list_inter[1][0] - top_lef[0]), float(list_inter[1][1] - top_lef[1])], "TOP_RIGH", font=fnt)
+                            draw.text([float(list_inter[2][0] - top_lef[0]), float(list_inter[2][1] - top_lef[1])], "DOW_RIGH", font=fnt)
+                            draw.text([float(list_inter[3][0] - top_lef[0]), float(list_inter[3][1] - top_lef[1])], "DOW_LEFT", font=fnt)
+                            img_draw = np.array(img_draw)
+                            img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
+                            cv2.imshow('img', cv2.resize(img_draw, (800, 800)))
+                            cv2.waitKey(0)
 
                         txtname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
                                   + image_name + '_' + bytes(idx) + '.txt'
@@ -175,6 +215,6 @@ def capture_image_from_textcenter(imgs):
 
 
 if __name__ == '__main__':
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/test')
+    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/tmp')
     capture_image_from_textcenter(all_imgs)
