@@ -24,7 +24,6 @@ from PIL import Image, ImageDraw
 import tools.get_data as get_data
 import tools.point_check as point_check
 
-sys.path.append('/home/yuquanjie/Documents/deep-direct-regression/tools')
 HUBER_DELTA = 1.0
 gpu_id = '3'
 os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
