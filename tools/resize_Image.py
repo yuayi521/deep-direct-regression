@@ -12,10 +12,7 @@ import tools.mydraw as mydraw
 import random as rd
 import re
 import string
-from PIL import Image, ImageFont, ImageDraw
-import numpy as np
 from shapely.geometry import Polygon
-fnt = ImageFont.truetype('/home/yuquanjie/Download/FreeMono.ttf', size=40)
 
 
 def capture_image_random(imgs):
@@ -63,33 +60,33 @@ def get_captured_img_toplef_downrig_coord(im, c):
     :return: return top left and down right corner coordinates of captured image
     """
     vis = False
-    if c[0] - 725 < 0 and c[1] - 725 < 0:
+    if c[0] - 500 < 0 and c[1] - 500 < 0:
         top_left = [0, 0]
-        down_rig = [1500, 1500]
-    elif c[1] - 725 < 0 and (c[0] - 725 > 0 and c[0] + 725 < im.shape[1]):
-        top_left = [c[0] - 725, 0]
-        down_rig = [c[0] + 725, 1500]
-    elif c[0] - 725 < 0 and (c[1] - 725 > 0 and c[1] + 725 < im.shape[0]):
-        top_left = [0, c[1] - 725]
-        down_rig = [1000, c[1] + 725]
-    elif c[0] + 725 > im.shape[1] and c[1] + 725 > im.shape[0]:
-        top_left = [im.shape[1] - 1500, 0]
-        down_rig = [im.shape[1], 1500]
-    elif c[0] + 725 > im.shape[1] and (c[1] - 725 > 0 and c[1] + 725 < im.shape[0]):
-        top_left = [im.shape[1] - 1500, c[1] - 725]
-        down_rig = [im.shape[1], c[1] + 725]
-    elif c[0] - 725 < 0 and c[1] + 725 > im.shape[0]:
-        top_left = [0, im.shape[0] - 1500]
-        down_rig = [1500, im.shape[0]]
-    elif c[1] + 725 > im.shape[0] and (c[0] - 725 > 0 and c[0] + 725 < im.shape[1]):
-        top_left = [c[0] - 725, im.shape[0] - 1500]
-        down_rig = [c[0] + 725, im.shape[0]]
-    elif c[0] + 725 > im.shape[1] and c[1] + 725 > im.shape[0]:
-        top_left = [im.shape[1] - 1500, im.shape[0] - 1500]
+        down_rig = [1000, 1000]
+    elif c[1] - 500 < 0 and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
+        top_left = [c[0] - 500, 0]
+        down_rig = [c[0] + 500, 1000]
+    elif c[0] - 500 < 0 and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
+        top_left = [0, c[1] - 500]
+        down_rig = [1000, c[1] + 500]
+    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
+        top_left = [im.shape[1] - 1000, 0]
+        down_rig = [im.shape[1], 1000]
+    elif c[0] + 500 > im.shape[1] and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
+        top_left = [im.shape[1] - 1000, c[1] - 500]
+        down_rig = [im.shape[1], c[1] + 500]
+    elif c[0] - 500 < 0 and c[1] + 500 > im.shape[0]:
+        top_left = [0, im.shape[0] - 1000]
+        down_rig = [1000, im.shape[0]]
+    elif c[1] + 500 > im.shape[0] and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
+        top_left = [c[0] - 500, im.shape[0] - 1000]
+        down_rig = [c[0] + 500, im.shape[0]]
+    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
+        top_left = [im.shape[1] - 1000, im.shape[0] - 1000]
         down_rig = [im.shape[1], im.shape[0]]
     else:
-        top_left = [c[0] - 725, c[1] - 725]
-        down_rig = [c[0] + 725, c[1] + 725]
+        top_left = [c[0] - 500, c[1] - 500]
+        down_rig = [c[0] + 500, c[1] + 500]
 
     if vis:
         mydraw.draw_rectangle_image(im, top_left, down_rig, "blue")
@@ -105,13 +102,11 @@ def capture_image_from_textcenter(imgs):
                  'boxNum' :
     :return:
     """
-    visiual = True
     for img in imgs:
         im = cv2.imread(img['imagePath'])
         imgfilepath = img['imagePath']
-        # print img['imagePath']
-        # if im.shape[0] > 1000 and im.shape[1] > 1000:
-        if im.shape[0] > 1500 and im.shape[1] > 1500:
+        print img['imagePath']
+        if im.shape[0] > 1000 and im.shape[1] > 1000:
 
             idx = 1
             for coord in img['boxCoord']:
@@ -133,10 +128,7 @@ def capture_image_from_textcenter(imgs):
                 image_name = search.group()
                 jpgname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
                           + image_name + '_' + bytes(idx) + '.jpg'
-                # save image
-                # note : 1st dimension is height, 2nd dimension is width
-                # forget the 1st dimension is height again
-                cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
+                poly_point_is5 = True
 
                 for polygon in img['boxCoord']:
                     x1 = string.atof(polygon[0])
@@ -151,68 +143,51 @@ def capture_image_from_textcenter(imgs):
                     raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
 
                     if raw_img_poly.intersects(cap_img_poly):
-                        inter = raw_img_poly.intersection(cap_img_poly)
-                        if inter.area == 0:
-                            break
-                        # inter maybe a hexagon, image_1004.jpg, so choose a maximux aear quadrangle as final result
-                        # captured image size changed from 1000 * 1000 to 1500 * 1500
-                        list_inter = list(inter.exterior.coords)
-
-                        if visiual:
-                            # show raw image, text region, text center
-                            """
-                            img_1 = cv2.imread(img['imagePath'])
-                            img_draw = Image.fromarray(cv2.cvtColor(img_1, cv2.COLOR_BGR2RGB))
-                            draw = ImageDraw.Draw(img_draw)
-                            draw.polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)],
-                                         outline="red", fill="blue")
-                            draw.text((text_center[0], text_center[1]), "center", font=fnt)
-                            img_draw = np.array(img_draw)
-                            img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
-                            cv2.imshow('img', cv2.resize(img_draw, (800, 800)))
-                            cv2.waitKey(0)
-                            """
-
-                            print inter
-                            print len(list_inter)
-                            # show captured image, new text region(intersection between text region and captured image),
-                            # 4 coordinates clockwise
-                            jpg = cv2.imread(jpgname)
-                            img_draw = Image.fromarray(cv2.cvtColor(jpg, cv2.COLOR_BGR2RGB))
-                            draw = ImageDraw.Draw(img_draw)
-                            draw.polygon([(float(list_inter[0][0] - top_lef[0]), float(list_inter[0][1] - top_lef[1])),
-                                          (float(list_inter[1][0] - top_lef[0]), float(list_inter[1][1] - top_lef[1])),
-                                          (float(list_inter[2][0] - top_lef[0]), float(list_inter[2][1] - top_lef[1])),
-                                          (float(list_inter[3][0] - top_lef[0]), float(list_inter[3][1] - top_lef[1]))],
-                                         outline="red", fill="blue")
-
-                            draw.text([float(list_inter[0][0] - top_lef[0]), float(list_inter[0][1] - top_lef[1])], "TOP_LEFT", font=fnt)
-                            draw.text([float(list_inter[1][0] - top_lef[0]), float(list_inter[1][1] - top_lef[1])], "TOP_RIGH", font=fnt)
-                            draw.text([float(list_inter[2][0] - top_lef[0]), float(list_inter[2][1] - top_lef[1])], "DOW_RIGH", font=fnt)
-                            draw.text([float(list_inter[3][0] - top_lef[0]), float(list_inter[3][1] - top_lef[1])], "DOW_LEFT", font=fnt)
-                            img_draw = np.array(img_draw)
-                            img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
-                            cv2.imshow('img', cv2.resize(img_draw, (800, 800)))
-                            cv2.waitKey(0)
-
                         txtname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
                                   + image_name + '_' + bytes(idx) + '.txt'
                         # writting pattern is appending
                         txtwrite = open(txtname, 'a')
+                        inter = raw_img_poly.intersection(cap_img_poly)
+                        # insure the intersected quardrangle's aera is greater than 0
+                        if inter.area == 0:
+                            poly_point_is5 = False
+                            break
+                        list_inter = list(inter.exterior.coords)
+                        x1, y1 = list_inter[0][0] - top_lef[0], list_inter[0][1] - top_lef[1]
+                        x2, y2 = list_inter[3][0] - top_lef[0], list_inter[3][1] - top_lef[1]
+                        x3, y3 = list_inter[2][0] - top_lef[0], list_inter[2][1] - top_lef[1]
+                        x4, y4 = list_inter[1][0] - top_lef[0], list_inter[1][1] - top_lef[1]
+                        # insure the top_left coordinates is on the right position
+                        if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
+                            poly_point_is5 = True
+                        else:
+                            poly_point_is5 = False
+                            break
+                        # insure the intersected poly is quardrangle
+                        if len(list_inter) != 5:
+                            poly_point_is5 = False
+                            break
+
+                        # list_inter[0] : top_left, list_inter[1]: down_left
+                        # list_inter[2] : dow_righ, list_inter[3]: top_righ
                         strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(bytes(list_inter[0][0] - top_lef[0]),
                                                                                bytes(list_inter[0][1] - top_lef[1]),
-                                                                               bytes(list_inter[1][0] - top_lef[0]),
-                                                                               bytes(list_inter[1][1] - top_lef[1]),
+                                                                               bytes(list_inter[3][0] - top_lef[0]),
+                                                                               bytes(list_inter[3][1] - top_lef[1]),
                                                                                bytes(list_inter[2][0] - top_lef[0]),
                                                                                bytes(list_inter[2][1] - top_lef[1]),
-                                                                               bytes(list_inter[3][0] - top_lef[0]),
-                                                                               bytes(list_inter[3][1] - top_lef[1]))
+                                                                               bytes(list_inter[1][0] - top_lef[0]),
+                                                                               bytes(list_inter[1][1] - top_lef[1]))
                         txtwrite.write(strcoord)
                 txtwrite.close()
+                # save image only when intersected polygon point number is 5 (4 + 1)
+                # note : 1st dimension is height, 2nd dimension is width
+                if poly_point_is5:
+                    cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
                 idx += 1
 
 
 if __name__ == '__main__':
-    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/tmp')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
+    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/tmp')
     capture_image_from_textcenter(all_imgs)
