@@ -13,7 +13,6 @@ from keras import backend as K
 from keras import optimizers
 from keras.layers import Input
 from keras.models import Model, load_model
-import sys
 import tensorflow as tf
 import string
 import re
@@ -23,6 +22,7 @@ import os
 from PIL import Image, ImageDraw
 import tools.get_data as get_data
 import tools.point_check as point_check
+import re
 
 HUBER_DELTA = 1.0
 gpu_id = '3'
@@ -43,6 +43,36 @@ def my_hinge(y_true, y_pred):
     sub_2 = y_pred - y_true
     my_hinge_loss = tf.reduce_mean(tf.square(tf.maximum(0.0, sub_1 * sub_2)))
     return my_hinge_loss
+
+
+def new_smooth(y_true, y_pred):
+    """
+    Compute regression loss, loss / batch_size
+    :param y_true: ground truth of regression and classification
+                    tensor shape (batch_size, 80, 80, 9)
+                    (:, :, :, 0:8) is regression label
+                    (:, :, :, 8) is classification label
+    :param y_pred: predicted value of regression
+    :return: every pixel loss, average loss of 8 feature map
+             tensor shape(batch_size, 80, 80)
+    """
+    # expand dimension of y_true, from (batch_size, 80, 80, 9) to (batch_size, 80, 80, 16)
+    sub = tf.expand_dims(y_true[:, :, :, 8], axis=3)
+    for i in xrange(7):
+        y_true = tf.concat([y_true, sub], axis=3)
+    abs_val = tf.abs(y_true[:, :, :, 0:8] - y_pred)
+    smooth = tf.where(tf.greater(1.0, abs_val),
+                      0.5 * abs_val ** 2,
+                      abs_val - 0.5)
+    loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
+                    smooth,
+                    0.0 * smooth)
+    # loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
+    #               y_true[:, :, :, 8:16],
+    #               0 * y_true[:, :, :, 8:16]) * smooth
+    loss = tf.reduce_mean(loss, axis=-1)
+    # loss_batch = loss / tf.to_float(tf.shape(y_true)[0])
+    return loss
 
 
 def smoothL1(y_true, y_pred):
@@ -324,13 +354,13 @@ if __name__ == '__main__':
     file.close()
     """
     # train data
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
+    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/deep-direct-regression/captured_data')
     # test data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part6')
     data_gen_train = get_train_data(all_imgs)
     while True:
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
-
         # reduce fisrt and last dimension
         Y_cls = np.sum(Y_cls, axis=-1)
         Y_cls = np.sum(Y_cls, axis=0)
@@ -338,43 +368,46 @@ if __name__ == '__main__':
 
         # load model
         # nigative label is -1
-        final_model = load_model('model_2017-06-14/loss-decrease-378-0.64.hdf5', custom_objects={'my_hinge': my_hinge,
-                                                                                                 'smoothL1': smoothL1})
-        # final_model = load_model('model_2017-06-14/loss-decrease-378-0.64.hdf5')
-        # nigative label is 0
-        # final_model = load_model('model/loss-decrease-1206-0.08.hdf5', custom_objects={'my_hinge': my_hinge})
+        final_model = load_model('model/loss-decrease-1068-0.18.hdf5',
+                                 custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(X)
-        # classification result
+
+        # 1) classification result
         predict_rel = predict_all[0]
-        # regression result
-        predict_regr = predict_all[1]
         # reduce first and last dimension
         predict_rel = np.sum(predict_rel, axis=-1)
         predict_rel = np.sum(predict_rel, axis=0)
-        # print predict_rel
-
-        # pos_pred is a tuple
-        # negative lable is -1
+        # pos_pred type is a tuple, negative lable is -1
         pos_pred = np.where(predict_rel > 0)
-        # negative lable is 0
-        # pos_pred = np.where(predict_rel > 0.15)
+        print pos_pred
 
-        # coord is a list
-        # coord = [pos_pred[0] * 4 * raw_img.shape[0] / 320, pos_pred[1] * 4 * raw_img.shape[1] / 320]
-        coord = [pos_pred[0] * 4 * raw_img.shape[1] / 320, pos_pred[1] * 4 * raw_img.shape[0] / 320]
+        # coord type is a list
+        # firstly, each pixel of 80 * 80 feature map multiply 4, get pixel classification on 320 * 320
+        coord = [pos_pred[0] * 4, pos_pred[1] * 4]
+        # seconly, each pixel of 320 * 320 multiply reduced scale, get pixel classification on 1000 * 1000
+        coord = [coord[0] * raw_img.shape[1] / 320, coord[1] * raw_img.shape[0] / 320]
 
-        # visiualize
+        # 2) regression result
+        predict_regr = predict_all[1]
+        predict_regr = np.sum(predict_rel, axis=0)
+        """
+            for ix in xrange(len(pos_pred[0]))
+                for jy in x
+        top_lef_x = [predict_regr[x, y, 0] for x,y in pos_pred[]]
+        """
+
+        # draw predicted text region(classification) on image, and save image
         img = cv2.imread(img_data['imagePath'])
         img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_draw)
-        text = "O"
         for i in xrange(len(pos_pred[0])):
-            # draw.point(([coord[0][i], coord[1][i]]), fill="red")
-            draw.text(([coord[0][i], coord[1][i]]), text, "red")
-
+            draw.text(([coord[0][i], coord[1][i]]), "O", "red")
         img_draw = np.array(img_draw)
         img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
-        # cv2.imshow('img', img_draw)
-        cv2.imshow('img', cv2.resize(img_draw, (1000, 1000)))
-        cv2.waitKey(0)
+        # get image name excluding directory path using regular expression
+        pattern = re.compile(r'image_\d*_\d*\.jpg')
+        search = pattern.search(img_data['imagePath'])
+        image_name = search.group()
+        image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name
+        cv2.imwrite(image_path, img_draw[0: img_draw.shape[0], 0: img_draw.shape[1]])
