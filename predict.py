@@ -365,44 +365,72 @@ if __name__ == '__main__':
         Y_cls = np.sum(Y_cls, axis=-1)
         Y_cls = np.sum(Y_cls, axis=0)
         pos_gt = np.where(Y_cls > 0)
-
         # load model
         # nigative label is -1
         final_model = load_model('model/loss-decrease-1068-0.18.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+        # final_model = load_model('model/2017-06-21-14-20-loss-decrease-1142-0.11.hdf5',
+        #                         custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(X)
-
         # 1) classification result
-        predict_rel = predict_all[0]
+        predict_cls = predict_all[0]
         # reduce first and last dimension
-        predict_rel = np.sum(predict_rel, axis=-1)
-        predict_rel = np.sum(predict_rel, axis=0)
-        # pos_pred type is a tuple, negative lable is -1
-        pos_pred = np.where(predict_rel > 0)
-        print pos_pred
-
+        predict_cls = np.sum(predict_cls, axis=-1)
+        predict_cls = np.sum(predict_cls, axis=0)
+        # one_locs type is a tuple, negative lable is -1
+        one_locs = np.where(predict_cls > 0)
         # coord type is a list
         # firstly, each pixel of 80 * 80 feature map multiply 4, get pixel classification on 320 * 320
-        coord = [pos_pred[0] * 4, pos_pred[1] * 4]
+        coord = [one_locs[0] * 4, one_locs[1] * 4]
         # seconly, each pixel of 320 * 320 multiply reduced scale, get pixel classification on 1000 * 1000
-        coord = [coord[0] * raw_img.shape[1] / 320, coord[1] * raw_img.shape[0] / 320]
-
+        # 1st dimensiom represent width reduced scale
+        reduced_scle = [raw_img.shape[1] / 320.0, raw_img.shape[0] / 320.0]
+        coord = [coord[0] * reduced_scle[0], coord[1] * reduced_scle[1]]
         # 2) regression result
         predict_regr = predict_all[1]
-        predict_regr = np.sum(predict_rel, axis=0)
-        """
-            for ix in xrange(len(pos_pred[0]))
-                for jy in x
-        top_lef_x = [predict_regr[x, y, 0] for x,y in pos_pred[]]
-        """
+        predict_regr = np.sum(predict_regr, axis=0)
+        # x, y represent each text pixel's 8 coordiantes , non-text pixel doesn't have this
+        x1 = []
+        y1 = []
+        x2 = []
+        y2 = []
+        x3 = []
+        y3 = []
+        x4 = []
+        y4 = []
+        print 'text region in pixel level coordinates index {0}'.format(one_locs)
+        for idx in xrange(len(one_locs[0])):
+            x1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][0] * reduced_scle[0])
+            y1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][1] * reduced_scle[1])
+            x2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][2] * reduced_scle[0])
+            y2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][3] * reduced_scle[1])
+            x3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][4] * reduced_scle[0])
+            y3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][5] * reduced_scle[1])
+            x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6] * reduced_scle[0])
+            y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7] * reduced_scle[1])
 
-        # draw predicted text region(classification) on image, and save image
+        # draw predicted text region in pixel level on image, and save image
         img = cv2.imread(img_data['imagePath'])
         img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_draw)
-        for i in xrange(len(pos_pred[0])):
+        for i in xrange(len(one_locs[0])):
             draw.text(([coord[0][i], coord[1][i]]), "O", "red")
+
+        top_left = [coord[0][0] + x1[0], coord[1][0] + y1[0]]
+        top_righ = [coord[0][0] + x2[0], coord[1][0] + y2[0]]
+        dow_righ = [coord[0][0] + x4[0], coord[1][0] + y4[0]]
+        dow_left = [coord[0][0] + x3[0], coord[1][0] + y3[0]]
+        print 'the first text region pixel is ({0}, {1})'.format(coord[0][0], coord[1][0])
+        print '8 coordinates is ({0}, {1}), ({2}, {3}), ({4}, {5}), ({6}, {7})'.format(top_left[0], top_left[1],
+                                                                                       top_righ[0], top_righ[1],
+                                                                                       dow_righ[0], dow_righ[1],
+                                                                                       dow_left[0], dow_left[1])
+        # draw first text pixel and draw corresponding quardrangle
+        draw.text(([coord[0][0], coord[1][0]]), "OOOO", "blue")
+        draw.polygon([(top_left[0], top_left[1]), (top_righ[0], top_righ[1]),
+                      (dow_righ[0], dow_righ[1]), (dow_left[0], dow_left[1])], outline="black")
+
         img_draw = np.array(img_draw)
         img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
         # get image name excluding directory path using regular expression
