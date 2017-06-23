@@ -40,7 +40,7 @@ def capture_image_random(imgs):
                 pattern = re.compile(r'image_\d*')
                 search = pattern.search(img['imagePath'])
                 image_name = search.group()
-                filename = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/'\
+                filename = '/home/yuquanjie/Documents/deep-direct-regression/resized_1000/'\
                            + image_name + '_' + bytes(i) + '.jpg'
                 # note : 1st dimension is height
                 cv2.imwrite(filename, im[height_rand_idx: height_rand_idx + 1000,
@@ -51,74 +51,75 @@ def capture_image_random(imgs):
                     mydraw.draw_rectangle_image(im, roi_range)
 
 
-def get_captured_img_toplef_downrig_coord(im, c):
+def get_resizedimage_toplef_downrig_coord(im, c, size=1000):
     """
-    according text region center coordinate to capture a 1000 * 1000 image
+    according text region center coordinate to capture a size(1000) * size(1000) image
     should consider some boundary cases
     :param im:
     :param c: cneter coordinate of text region
-    :return: return top left and down right corner coordinates of captured image
+    :param size: resized image's size
+    :return: return top left and down right corner coordinates of resized image
     """
     vis = False
-    if c[0] - 500 < 0 and c[1] - 500 < 0:
+    if c[0] - size/2 < 0 and c[1] - size/2 < 0:
         top_left = [0, 0]
-        down_rig = [1000, 1000]
-    elif c[1] - 500 < 0 and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
-        top_left = [c[0] - 500, 0]
-        down_rig = [c[0] + 500, 1000]
-    elif c[0] - 500 < 0 and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
-        top_left = [0, c[1] - 500]
-        down_rig = [1000, c[1] + 500]
-    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
-        top_left = [im.shape[1] - 1000, 0]
-        down_rig = [im.shape[1], 1000]
-    elif c[0] + 500 > im.shape[1] and (c[1] - 500 > 0 and c[1] + 500 < im.shape[0]):
-        top_left = [im.shape[1] - 1000, c[1] - 500]
-        down_rig = [im.shape[1], c[1] + 500]
-    elif c[0] - 500 < 0 and c[1] + 500 > im.shape[0]:
+        down_rig = [size, size]
+    elif c[1] - size/2 < 0 and (c[0] - size/2 > 0 and c[0] + size/2 < im.shape[1]):
+        top_left = [c[0] - size/2, 0]
+        down_rig = [c[0] + size/2, size]
+    elif c[0] - size/2 < 0 and (c[1] - size/2 > 0 and c[1] + size/2 < im.shape[0]):
+        top_left = [0, c[1] - size/2]
+        down_rig = [size, c[1] + size/2]
+    elif c[0] + size/2 > im.shape[1] and c[1] + size/2 > im.shape[0]:
+        top_left = [im.shape[1] - size, 0]
+        down_rig = [im.shape[1], size]
+    elif c[0] + size/2 > im.shape[1] and (c[1] - size/2 > 0 and c[1] + size/2 < im.shape[0]):
+        top_left = [im.shape[1] - size, c[1] - size/2]
+        down_rig = [im.shape[1], c[1] + size/2]
+    elif c[0] - size/2 < 0 and c[1] + size/2 > im.shape[0]:
         top_left = [0, im.shape[0] - 1000]
         down_rig = [1000, im.shape[0]]
-    elif c[1] + 500 > im.shape[0] and (c[0] - 500 > 0 and c[0] + 500 < im.shape[1]):
-        top_left = [c[0] - 500, im.shape[0] - 1000]
-        down_rig = [c[0] + 500, im.shape[0]]
-    elif c[0] + 500 > im.shape[1] and c[1] + 500 > im.shape[0]:
-        top_left = [im.shape[1] - 1000, im.shape[0] - 1000]
+    elif c[1] + size/2 > im.shape[0] and (c[0] - size/2 > 0 and c[0] + size/2 < im.shape[1]):
+        top_left = [c[0] - size/2, im.shape[0] - size]
+        down_rig = [c[0] + size/2, im.shape[0]]
+    elif c[0] + size/2 > im.shape[1] and c[1] + size/2 > im.shape[0]:
+        top_left = [im.shape[1] - size, im.shape[0] - size]
         down_rig = [im.shape[1], im.shape[0]]
     else:
-        top_left = [c[0] - 500, c[1] - 500]
-        down_rig = [c[0] + 500, c[1] + 500]
+        top_left = [c[0] - size/2, c[1] - size/2]
+        down_rig = [c[0] + size/2, c[1] + size/2]
 
     if vis:
         mydraw.draw_rectangle_image(im, top_left, down_rig, "blue")
     return top_left, down_rig
 
 
-def capture_image_from_textcenter(imgs):
+def resize_image_from_textcenter(imgs, size=1000):
     """
     according to text region center, generate  1000 * 1000 images
     :param imgs: a list(array), each elements is a dictionary
                  'imagePath' :
                  'boxCoord' :
                  'boxNum' :
+    :param size: resized size
     :return:
     """
     for img in imgs:
-        im = cv2.imread(img['imagePath'])
         imgfilepath = img['imagePath']
-        print img['imagePath']
-        if im.shape[0] > 1000 and im.shape[1] > 1000:
-
+        im = cv2.imread(imgfilepath)
+        print imgfilepath
+        if im.shape[0] > size and im.shape[1] > size:
             idx = 1
             for coord in img['boxCoord']:
-                # calculate center of text region
+                # calculate center of text region, using top-left and down right coordinates
                 text_center = [(string.atof(coord[0]) + string.atof(coord[4])) / 2,
                                (string.atof(coord[1]) + string.atof(coord[5])) / 2]
-                # get captured image's top-left and down right coordinates
-                [top_lef, dow_rig] = get_captured_img_toplef_downrig_coord(im, text_center)
+                # get resized image's top-left and down right coordinates
+                [top_lef, dow_rig] = get_resizedimage_toplef_downrig_coord(im, text_center, size)
                 # calculate top-right and down-left coordinates
                 top_rig = [dow_rig[0], top_lef[1]]
                 dow_lef = [top_lef[0], dow_rig[1]]
-                # using shapely lib define a captured image Polygon object
+                # using shapely lib define a captured image Polygon object, is anti-clockwise
                 cap_img_poly = Polygon([(top_lef[0], top_lef[1]), (dow_lef[0], dow_lef[1]),
                                         (dow_rig[0], dow_rig[1]), (top_rig[0], top_rig[1])])
                 # generate captured image file name
@@ -126,9 +127,10 @@ def capture_image_from_textcenter(imgs):
                 # search = pattern.search(img['imagePath'])
                 search = pattern.search(imgfilepath)
                 image_name = search.group()
-                jpgname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
-                          + image_name + '_' + bytes(idx) + '.jpg'
-                poly_point_is5 = True
+                jpgname = '/home/yuquanjie/Documents/deep-direct-regression/resized_' + bytes(size) + '/' \
+                          + image_name + '_' + bytes(idx) + '_resized' + bytes(size) + '.jpg'
+                # write all text file, but write image file only when write_resized_image is ture
+                write_resized_image = True
 
                 for polygon in img['boxCoord']:
                     x1 = string.atof(polygon[0])
@@ -143,29 +145,33 @@ def capture_image_from_textcenter(imgs):
                     raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
 
                     if raw_img_poly.intersects(cap_img_poly):
-                        txtname = '/home/yuquanjie/Documents/deep-direct-regression/captured_data/' \
-                                  + image_name + '_' + bytes(idx) + '.txt'
-                        # writting pattern is appending
+                        txtname = '/home/yuquanjie/Documents/deep-direct-regression/resized_' + bytes(size) + '/' \
+                                  + image_name + '_' + bytes(idx) + '_resized' + bytes(size) + '.txt'
+                        # set writting pattern appending
                         txtwrite = open(txtname, 'a')
                         inter = raw_img_poly.intersection(cap_img_poly)
                         # insure the intersected quardrangle's aera is greater than 0
                         if inter.area == 0:
-                            poly_point_is5 = False
+                            write_resized_image = False
+                            break
+                        # insure the text region's percentage shoud not be 100%
+                        if inter.area > (size - 20) * (size - 20):
+                            write_resized_image = False
                             break
                         list_inter = list(inter.exterior.coords)
                         x1, y1 = list_inter[0][0] - top_lef[0], list_inter[0][1] - top_lef[1]
                         x2, y2 = list_inter[3][0] - top_lef[0], list_inter[3][1] - top_lef[1]
                         x3, y3 = list_inter[2][0] - top_lef[0], list_inter[2][1] - top_lef[1]
                         x4, y4 = list_inter[1][0] - top_lef[0], list_inter[1][1] - top_lef[1]
-                        # insure the top_left coordinates is on the right position
+                        # insure the top_left coordinates is on the top-left position
                         if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
-                            poly_point_is5 = True
+                            write_resized_image = True
                         else:
-                            poly_point_is5 = False
+                            write_resized_image = False
                             break
                         # insure the intersected poly is quardrangle
                         if len(list_inter) != 5:
-                            poly_point_is5 = False
+                            write_resized_image = False
                             break
 
                         # list_inter[0] : top_left, list_inter[1]: down_left
@@ -182,7 +188,7 @@ def capture_image_from_textcenter(imgs):
                 txtwrite.close()
                 # save image only when intersected polygon point number is 5 (4 + 1)
                 # note : 1st dimension is height, 2nd dimension is width
-                if poly_point_is5:
+                if write_resized_image:
                     cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
                 idx += 1
 
@@ -190,4 +196,4 @@ def capture_image_from_textcenter(imgs):
 if __name__ == '__main__':
     all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/tmp')
-    capture_image_from_textcenter(all_imgs)
+    resize_image_from_textcenter(all_imgs, 330)
