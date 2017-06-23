@@ -4,8 +4,7 @@
     @version created
     @email   yuquanjie13@gmail.com
 """
-from keras.layers import Input, Add, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, \
-    BatchNormalization
+from keras.layers import Convolution2D, MaxPooling2D, BatchNormalization
 from keras.layers.convolutional import Conv2DTranspose
 from keras.layers.merge import add
 from keras.layers.core import Lambda
@@ -15,7 +14,6 @@ from keras.layers import Input
 from keras.models import Model, load_model
 import tensorflow as tf
 import string
-import re
 import numpy as np
 import cv2
 import os
@@ -353,24 +351,18 @@ if __name__ == '__main__':
     Y_cls = file['Y_train_cls'][:]
     file.close()
     """
-    # train data
+    # train data, test model using train data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
     all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/deep-direct-regression/captured_data')
-    # test data
+    # test data , test model using test data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part6')
     data_gen_train = get_train_data(all_imgs)
     while True:
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
-        # reduce fisrt and last dimension
-        Y_cls = np.sum(Y_cls, axis=-1)
-        Y_cls = np.sum(Y_cls, axis=0)
-        pos_gt = np.where(Y_cls > 0)
         # load model
-        # nigative label is -1
-        final_model = load_model('model/loss-decrease-1068-0.18.hdf5',
+        # negative label is -1
+        final_model = load_model('model/2017-06-22-17-28-loss-decrease-868-0.48.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
-        # final_model = load_model('model/2017-06-21-14-20-loss-decrease-1142-0.11.hdf5',
-        #                         custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(X)
         # 1) classification result
@@ -378,17 +370,19 @@ if __name__ == '__main__':
         # reduce first and last dimension
         predict_cls = np.sum(predict_cls, axis=-1)
         predict_cls = np.sum(predict_cls, axis=0)
-        # one_locs type is a tuple, negative lable is -1
+        # one_locs type is tuple, negative lable is -1
         one_locs = np.where(predict_cls > 0)
-        # coord type is a list
+        # coord type is list
         # firstly, each pixel of 80 * 80 feature map multiply 4, get pixel classification on 320 * 320
         coord = [one_locs[0] * 4, one_locs[1] * 4]
         # seconly, each pixel of 320 * 320 multiply reduced scale, get pixel classification on 1000 * 1000
-        # 1st dimensiom represent width reduced scale
-        reduced_scle = [raw_img.shape[1] / 320.0, raw_img.shape[0] / 320.0]
-        coord = [coord[0] * reduced_scle[0], coord[1] * reduced_scle[1]]
+        # raw image's size (1000 * 1000) / (320 * 320), 1st dimensiom represent width reduced scale
+        reduced_scale = [raw_img.shape[1] / 320.0, raw_img.shape[0] / 320.0]
+        # coord represent the text's coordinates on raw image (1000 * 1000)
+        coord = [coord[0] * reduced_scale[0], coord[1] * reduced_scale[1]]
         # 2) regression result
         predict_regr = predict_all[1]
+        # reduce dimension from (1, 80, 80, 8) to (80, 80, 8)
         predict_regr = np.sum(predict_regr, axis=0)
         # x, y represent each text pixel's 8 coordiantes , non-text pixel doesn't have this
         x1 = []
@@ -399,40 +393,35 @@ if __name__ == '__main__':
         y3 = []
         x4 = []
         y4 = []
-        print 'text region in pixel level coordinates index {0}'.format(one_locs)
+        # predict_regr is 3 dimension, 1st and 2nd dimension range is 0-79, should use one_locs not coords
+        # predict_regr[][][] * reduced_scale to get the coordinates on the raw image (1000 * 1000)
         for idx in xrange(len(one_locs[0])):
-            x1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][0] * reduced_scle[0])
-            y1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][1] * reduced_scle[1])
-            x2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][2] * reduced_scle[0])
-            y2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][3] * reduced_scle[1])
-            x3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][4] * reduced_scle[0])
-            y3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][5] * reduced_scle[1])
-            x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6] * reduced_scle[0])
-            y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7] * reduced_scle[1])
+            x1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][0] * reduced_scale[0])
+            y1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][1] * reduced_scale[1])
+            x2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][2] * reduced_scale[0])
+            y2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][3] * reduced_scale[1])
+            x3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][4] * reduced_scale[0])
+            y3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][5] * reduced_scale[1])
+            x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6] * reduced_scale[0])
+            y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7] * reduced_scale[1])
 
-        # draw predicted text region in pixel level on image, and save image
         img = cv2.imread(img_data['imagePath'])
         img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_draw)
         for i in xrange(len(one_locs[0])):
+            # draw predicted text region in pixel level on raw image(1000 * 1000), and save image
+            # use the coordinates is on the raw image(1000 * 1000)
             draw.text(([coord[0][i], coord[1][i]]), "O", "red")
-
-        top_left = [coord[0][0] + x1[0], coord[1][0] + y1[0]]
-        top_righ = [coord[0][0] + x2[0], coord[1][0] + y2[0]]
-        dow_righ = [coord[0][0] + x4[0], coord[1][0] + y4[0]]
-        dow_left = [coord[0][0] + x3[0], coord[1][0] + y3[0]]
-        print 'the first text region pixel is ({0}, {1})'.format(coord[0][0], coord[1][0])
-        print '8 coordinates is ({0}, {1}), ({2}, {3}), ({4}, {5}), ({6}, {7})'.format(top_left[0], top_left[1],
-                                                                                       top_righ[0], top_righ[1],
-                                                                                       dow_righ[0], dow_righ[1],
-                                                                                       dow_left[0], dow_left[1])
-        # draw first text pixel and draw corresponding quardrangle
-        draw.text(([coord[0][0], coord[1][0]]), "OOOO", "blue")
-        draw.polygon([(top_left[0], top_left[1]), (top_righ[0], top_righ[1]),
-                      (dow_righ[0], dow_righ[1]), (dow_left[0], dow_left[1])], outline="black")
-
+            # draw regression parameters on iamge
+            top_left = [coord[0][i] + x1[i], coord[1][i] + y1[i]]
+            top_righ = [coord[0][i] + x2[i], coord[1][i] + y2[i]]
+            dow_righ = [coord[0][i] + x3[i], coord[1][i] + y3[i]]
+            dow_left = [coord[0][i] + x4[i], coord[1][i] + y4[i]]
+            draw.polygon([(top_left[0], top_left[1]), (top_righ[0], top_righ[1]),
+                          (dow_righ[0], dow_righ[1]), (dow_left[0], dow_left[1])], outline="black")
         img_draw = np.array(img_draw)
         img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
+
         # get image name excluding directory path using regular expression
         pattern = re.compile(r'image_\d*_\d*\.jpg')
         search = pattern.search(img_data['imagePath'])
