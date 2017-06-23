@@ -4,25 +4,51 @@
     @version created
     @email   yuquanjie13@gmail.com
 """
-from keras.layers import Input, Add, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, \
-    BatchNormalization
+from keras.layers import Convolution2D, MaxPooling2D, BatchNormalization
 from keras.layers.convolutional import Conv2DTranspose
 from keras.layers.merge import add
 from keras.layers.core import Lambda
-# from keras import backend as K
 from keras.callbacks import ModelCheckpoint
 from keras import optimizers
 from keras.layers import Input
 from keras.models import Model
 import sys
+import numpy as np
 import os
 import h5py
 import tensorflow as tf
+import datetime
 
 sys.path.append('/home/yuquanjie/Documents/deep-direct-regression/tools')
 HUBER_DELTA = 1.0
 gpu_id = '0'
 os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+
+
+def read_multi_h5file(filenamelist):
+    """
+    read multi h5 file
+    :param filenamelist:
+    :return: network input X and output Y
+    """
+    read = h5py.File(filenamelist[0], 'r')
+    x_train = read['X_train'][:]
+    y_1_cls = read['Y_train_cls'][:]
+    y_2_mer = read['Y_train_merge'][:]
+    read.close()
+
+    for idx in range(1, len(filenamelist)):
+        read = h5py.File(filenamelist[idx], 'r')
+        x_ite = read['X_train'][:]
+        y_1_cls_ite = read['Y_train_cls'][:]
+        y_2_mer_ite = read['Y_train_merge'][:]
+        read.close()
+        x_train = np.concatenate((x_train, x_ite))
+        y_1_cls = np.concatenate((y_1_cls, y_1_cls_ite))
+        y_2_mer = np.concatenate((y_2_mer, y_2_mer_ite))
+
+    y_train = [y_1_cls, y_2_mer]
+    return x_train, y_train
 
 
 def my_hinge(y_true, y_pred):
@@ -226,33 +252,36 @@ if __name__ == '__main__':
     # compile model
     # multask_model.compile(loss=[my_hinge, smooth_l1], optimizer=sgd)
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
+
     # read training data from h5 file
-    file_read = h5py.File('dataset/train_dataset-1500.h5', 'r')
-    X = file_read['X_train'][:]
-    Y_1 = file_read['Y_train_cls'][:]
-    Y_2 = file_read['Y_train_merge'][:]
-    file_read.close()
-    Y = [Y_1, Y_2]
-    print 'traning data shape ------'
-    print X.shape
-    print Y_1.shape
-    print Y_2.shape
+    print 'reading data from h5 file .....'
+    filenamelist = ['dataset_old/train_dataset-1500.h5', 'dataset_old/train_dataset-5000.h5']
+    X, Y = read_multi_h5file(filenamelist)
+    print 'traning data, input shape is {0}, output classifiction shape is {1}, regression shape is {2}'.\
+        format(X.shape, Y[0].shape, Y[1].shape)
     # read validation data from h5 file
-    file_read = h5py.File('dataset/val_dataset-1000.h5', 'r')
-    print 'validation data shape -----'
+    file_read = h5py.File('dataset/train_dataset-1500.h5', 'r')
     X_val = file_read['X_train'][:]
     Y_val_1 = file_read['Y_train_cls'][:]
     Y_val_2 = file_read['Y_train_merge'][:]
     Y_val = [Y_val_1, Y_val_2]
-    print X_val.shape
-    print Y_val_1.shape
-    print Y_val_2.shape
     file_read.close()
+    print 'validation data, input shape is {0}, output shape classification shape is {1}, regression ' \
+          'shape is {2}'.format(X_val.shape, Y_val[0].shape, Y[1].shape)
     # saved model file path and name
-    filepath = "model_2017-06-14/loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
+    # get date and time
+    date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
+    filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True,
                                  mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    loss_class = multask_model.fit(X, Y, batch_size=8, epochs=5000, callbacks=callbacks_list,
-                                   validation_data=(X_val, Y_val), verbose=1)
+    use_val_data = False
+    if use_val_data:
+        # add validation data
+        loss_class = multask_model.fit(X, Y, batch_size=8, epochs=5000, shuffle=True, callbacks=callbacks_list,
+                                       validation_data=(X_val, Y_val), verbose=1)
+    else:
+        # not use validation data for faster speed
+        loss_class = multask_model.fit(X, Y, batch_size=32, epochs=5000, shuffle=True,
+                                       callbacks=callbacks_list, verbose=1)
