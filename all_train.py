@@ -11,7 +11,7 @@ from keras.layers.core import Lambda
 from keras.callbacks import ModelCheckpoint
 from keras import optimizers
 from keras.layers import Input
-from keras.models import Model
+from keras.models import Model, load_model
 import sys
 import numpy as np
 import os
@@ -246,21 +246,28 @@ if __name__ == '__main__':
     # define network
     multi = multi_task(img_input)
     multask_model = Model(img_input, multi[0:2])
-    # multask_model = Model(img_input, multi[0])
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # compile model
     # multask_model.compile(loss=[my_hinge, smooth_l1], optimizer=sgd)
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
 
+    # resume training
+    # model.save_weights() use load_weights()
+    # multask_model.load_weights('model/2017-06-23-17-14-loss-decrease-1827-0.65.hdf5')
+    multask_model = load_model('model/2017-06-23-17-14-loss-decrease-1827-0.65.hdf5',
+                               custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+
     # read training data from h5 file
     print 'reading data from h5 file .....'
-    filenamelist = ['dataset_old/train_dataset-1500.h5', 'dataset_old/train_dataset-5000.h5']
+    filenamelist = ['dataset/train_size320_1_.h5', 'dataset/train_size320_2_.h5', 'dataset/train_size320_3_.h5']
+    # filenamelist = ['dataset/train_size320_num1500.h5']
     X, Y = read_multi_h5file(filenamelist)
     print 'traning data, input shape is {0}, output classifiction shape is {1}, regression shape is {2}'.\
         format(X.shape, Y[0].shape, Y[1].shape)
+    """"
     # read validation data from h5 file
-    file_read = h5py.File('dataset/train_dataset-1500.h5', 'r')
+    file_read = h5py.File('dataset/train_size320_num1500.h5', 'r')
     X_val = file_read['X_train'][:]
     Y_val_1 = file_read['Y_train_cls'][:]
     Y_val_2 = file_read['Y_train_merge'][:]
@@ -268,6 +275,7 @@ if __name__ == '__main__':
     file_read.close()
     print 'validation data, input shape is {0}, output shape classification shape is {1}, regression ' \
           'shape is {2}'.format(X_val.shape, Y_val[0].shape, Y[1].shape)
+    """
     # saved model file path and name
     # get date and time
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
@@ -279,9 +287,10 @@ if __name__ == '__main__':
     use_val_data = False
     if use_val_data:
         # add validation data
-        loss_class = multask_model.fit(X, Y, batch_size=8, epochs=5000, shuffle=True, callbacks=callbacks_list,
-                                       validation_data=(X_val, Y_val), verbose=1)
+        # loss_class = multask_model.fit(X, Y, batch_size=8, epochs=5000, shuffle=True, callbacks=callbacks_list,
+        #                              validation_data=(X_val, Y_val), verbose=1)
+        print '1'
     else:
         # not use validation data for faster speed
-        loss_class = multask_model.fit(X, Y, batch_size=32, epochs=5000, shuffle=True,
+        loss_class = multask_model.fit(X, Y, batch_size=64, epochs=5000, shuffle=True,
                                        callbacks=callbacks_list, verbose=1)
