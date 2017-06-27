@@ -94,15 +94,15 @@ def get_resizedimage_toplef_downrig_coord(im, c, size=1000):
     return top_left, down_rig
 
 
-def resize_image_from_textcenter(imgs, size=1000):
+def resize_image_from_textcenter(imgs, size=320):
     """
-    according to text region center, generate  1000 * 1000 images
+    according to text region center, generate  320 * 320 images
     :param imgs: a list(array), each elements is a dictionary
                  'imagePath' :
                  'boxCoord' :
                  'boxNum' :
     :param size: resized size
-    :return:
+    :return: no returning value, write image(320 * 320) and corresponding txt file on disk
     """
     for img in imgs:
         imgfilepath = img['imagePath']
@@ -111,89 +111,96 @@ def resize_image_from_textcenter(imgs, size=1000):
         if im.shape[0] > size and im.shape[1] > size:
             idx = 1
             for coord in img['boxCoord']:
+                # resize raw iamge to 320 * 320, 5 resized image center
                 # calculate center of text region, using top-left and down right coordinates
                 text_center = [(string.atof(coord[0]) + string.atof(coord[4])) / 2,
                                (string.atof(coord[1]) + string.atof(coord[5])) / 2]
+                text_top_left = [string.atof(coord[0]), string.atof(coord[1])]
+                text_top_righ = [string.atof(coord[2]), string.atof(coord[3])]
+                text_dow_righ = [string.atof(coord[4]), string.atof(coord[5])]
+                text_dow_left = [string.atof(coord[6]), string.atof(coord[7])]
+
+                # define a dict
+                resized_image_center = {'cn': text_center, 'tf': text_top_left, 'tr': text_top_righ,
+                                        'dr': text_dow_righ, 'dl': text_dow_left}
                 # get resized image's top-left and down right coordinates
-                [top_lef, dow_rig] = get_resizedimage_toplef_downrig_coord(im, text_center, size)
-                # calculate top-right and down-left coordinates
-                top_rig = [dow_rig[0], top_lef[1]]
-                dow_lef = [top_lef[0], dow_rig[1]]
-                # using shapely lib define a captured image Polygon object, is anti-clockwise
-                cap_img_poly = Polygon([(top_lef[0], top_lef[1]), (dow_lef[0], dow_lef[1]),
-                                        (dow_rig[0], dow_rig[1]), (top_rig[0], top_rig[1])])
-                # generate captured image file name
-                pattern = re.compile(r'image_\d*')
-                # search = pattern.search(img['imagePath'])
-                search = pattern.search(imgfilepath)
-                image_name = search.group()
-                jpgname = '/home/yuquanjie/Documents/deep-direct-regression/resized_' + bytes(size) + '/' \
-                          + image_name + '_' + bytes(idx) + '_resized' + bytes(size) + '.jpg'
-                # write all text file, but write image file only when write_resized_image is ture
-                write_resized_image = True
+                for pos in resized_image_center:
+                    [top_lef, dow_rig] = get_resizedimage_toplef_downrig_coord(im, resized_image_center[pos], size)
+                    # calculate top-right and down-left coordinates
+                    top_rig = [dow_rig[0], top_lef[1]]
+                    dow_lef = [top_lef[0], dow_rig[1]]
+                    # using shapely lib define a captured image Polygon object, is anti-clockwise
+                    cap_img_poly = Polygon([(top_lef[0], top_lef[1]), (dow_lef[0], dow_lef[1]),
+                                            (dow_rig[0], dow_rig[1]), (top_rig[0], top_rig[1])])
+                    # generate captured image file name
+                    pattern = re.compile(r'image_\d*')
+                    # search = pattern.search(img['imagePath'])
+                    search = pattern.search(imgfilepath)
+                    image_name = search.group()
+                    jpgname = '/home/yuquanjie/Documents/deep-direct-regression/resized_' + bytes(size) + '/' \
+                              + image_name + '_' + bytes(idx) + '_' + pos + '.jpg'
+                    # write all text file, but write image file only when write_resized_image is ture
+                    write_resized_image = True
 
-                for polygon in img['boxCoord']:
-                    x1 = string.atof(polygon[0])
-                    x2 = string.atof(polygon[2])
-                    x3 = string.atof(polygon[4])
-                    x4 = string.atof(polygon[6])
+                    for polygon in img['boxCoord']:
+                        x1 = string.atof(polygon[0])
+                        x2 = string.atof(polygon[2])
+                        x3 = string.atof(polygon[4])
+                        x4 = string.atof(polygon[6])
 
-                    y1 = string.atof(polygon[1])
-                    y2 = string.atof(polygon[3])
-                    y3 = string.atof(polygon[5])
-                    y4 = string.atof(polygon[7])
-                    raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
+                        y1 = string.atof(polygon[1])
+                        y2 = string.atof(polygon[3])
+                        y3 = string.atof(polygon[5])
+                        y4 = string.atof(polygon[7])
+                        raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
 
-                    if raw_img_poly.intersects(cap_img_poly):
-                        txtname = '/home/yuquanjie/Documents/deep-direct-regression/resized_' + bytes(size) + '/' \
-                                  + image_name + '_' + bytes(idx) + '_resized' + bytes(size) + '.txt'
-                        # set writting pattern appending
-                        txtwrite = open(txtname, 'a')
-                        inter = raw_img_poly.intersection(cap_img_poly)
-                        # insure the intersected quardrangle's aera is greater than 0
-                        if inter.area == 0:
-                            write_resized_image = False
-                            break
-                        # insure the text region's percentage shoud not be 100%
-                        if inter.area > (size - 20) * (size - 20):
-                            write_resized_image = False
-                            break
-                        list_inter = list(inter.exterior.coords)
-                        x1, y1 = list_inter[0][0] - top_lef[0], list_inter[0][1] - top_lef[1]
-                        x2, y2 = list_inter[3][0] - top_lef[0], list_inter[3][1] - top_lef[1]
-                        x3, y3 = list_inter[2][0] - top_lef[0], list_inter[2][1] - top_lef[1]
-                        x4, y4 = list_inter[1][0] - top_lef[0], list_inter[1][1] - top_lef[1]
-                        # insure the top_left coordinates is on the top-left position
-                        if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
-                            write_resized_image = True
-                        else:
-                            write_resized_image = False
-                            break
-                        # insure the intersected poly is quardrangle
-                        if len(list_inter) != 5:
-                            write_resized_image = False
-                            break
-
-                        # list_inter[0] : top_left, list_inter[1]: down_left
-                        # list_inter[2] : dow_righ, list_inter[3]: top_righ
-                        strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(bytes(list_inter[0][0] - top_lef[0]),
-                                                                               bytes(list_inter[0][1] - top_lef[1]),
-                                                                               bytes(list_inter[3][0] - top_lef[0]),
-                                                                               bytes(list_inter[3][1] - top_lef[1]),
-                                                                               bytes(list_inter[2][0] - top_lef[0]),
-                                                                               bytes(list_inter[2][1] - top_lef[1]),
-                                                                               bytes(list_inter[1][0] - top_lef[0]),
-                                                                               bytes(list_inter[1][1] - top_lef[1]))
-                        txtwrite.write(strcoord)
-                txtwrite.close()
-                # save image only when intersected polygon point number is 5 (4 + 1)
-                # note : 1st dimension is height, 2nd dimension is width
-                if write_resized_image:
-                    cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
-                idx += 1
+                        if raw_img_poly.intersects(cap_img_poly):
+                            txtname = '/home/yuquanjie/Documents/deep-direct-regression/resized_' + bytes(size) + '/' \
+                                      + image_name + '_' + bytes(idx) + '_' + pos + '.txt'
+                            # set writting pattern appending
+                            txtwrite = open(txtname, 'a')
+                            inter = raw_img_poly.intersection(cap_img_poly)
+                            # insure the intersected quardrangle's aera is greater than 0
+                            if inter.area == 0:
+                                write_resized_image = False
+                                break
+                            # insure the text region's percentage should not greater than 88%
+                            if inter.area > (size - 20) * (size - 20):
+                                write_resized_image = False
+                                break
+                            list_inter = list(inter.exterior.coords)
+                            x1, y1 = list_inter[0][0] - top_lef[0], list_inter[0][1] - top_lef[1]
+                            x2, y2 = list_inter[3][0] - top_lef[0], list_inter[3][1] - top_lef[1]
+                            x3, y3 = list_inter[2][0] - top_lef[0], list_inter[2][1] - top_lef[1]
+                            x4, y4 = list_inter[1][0] - top_lef[0], list_inter[1][1] - top_lef[1]
+                            # insure the top_left coordinates is on the top-left position
+                            if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
+                                write_resized_image = True
+                            else:
+                                write_resized_image = False
+                                break
+                            # insure the intersected poly is quardrangle
+                            if len(list_inter) != 5:
+                                write_resized_image = False
+                                break
+                            # list_inter[0] : top_left, list_inter[1]: down_left, list_inter[2] : dow_righ
+                            strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(bytes(list_inter[0][0] - top_lef[0]),
+                                                                                   bytes(list_inter[0][1] - top_lef[1]),
+                                                                                   bytes(list_inter[3][0] - top_lef[0]),
+                                                                                   bytes(list_inter[3][1] - top_lef[1]),
+                                                                                   bytes(list_inter[2][0] - top_lef[0]),
+                                                                                   bytes(list_inter[2][1] - top_lef[1]),
+                                                                                   bytes(list_inter[1][0] - top_lef[0]),
+                                                                                   bytes(list_inter[1][1] - top_lef[1]))
+                            txtwrite.write(strcoord)
+                    txtwrite.close()
+                    # note : 1st dimension is height, 2nd dimension is width
+                    if write_resized_image:
+                        # print 'writing ... {0}'.format(jpgname)
+                        cv2.imwrite(jpgname, im[int(top_lef[1]): int(dow_rig[1]), int(top_lef[0]): int(dow_rig[0])])
+                    idx += 1
 
 
 if __name__ == '__main__':
     all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/tmp')
-    resize_image_from_textcenter(all_imgs, 330)
+    resize_image_from_textcenter(all_imgs, 320)
