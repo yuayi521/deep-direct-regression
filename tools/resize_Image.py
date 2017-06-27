@@ -15,40 +15,93 @@ import string
 from shapely.geometry import Polygon
 
 
-def capture_image_random(imgs):
+def capture_image_random(imgs, size=320, cropped_num=300):
     """
-    choose a point as top left coord randomly, then each aixs add  1000 pixel, generate
-    down right coord, then get a 1000 * 1000 image
+    choose a point as top left coord randomly, then each aixs add  320 pixel, generate
+    down right coord, then get a 320 * 320 image
     :param imgs: a list, each elements is a dictionary
-                 'imagePath'
-                 'boxCoord'
-                 'boxNum'
+    :param size: cropped iamge size
+    :param cropped_num: number of cropped iamge
     :return:(TODO)
     """
-    visiual = False
     for img in imgs:
         im = cv2.imread(img['imagePath'])
-        if im.shape[0] > 1000 and im.shape[1] > 1000:
-            print img['imagePath']
-            # choose a top-left corner
-            height_remain = im.shape[0] - 1000  # 3200 - 1000
-            weight_remain = im.shape[1] - 1000  # 2400 - 1000
-            for i in xrange(50):
-                weight_rand_idx = rd.randint(0, weight_remain)
-                height_rand_idx = rd.randint(0, height_remain)
-                # using regular expression to match image file name excluding .jpb
+        print img['imagePath']
+        if im.shape[0] > size and im.shape[1] > size:
+            # range of top_left_x and top_left_y
+            height_remain = im.shape[0] - size  # 3200 - 320
+            weight_remain = im.shape[1] - size  # 2400 - 320
+            for i in xrange(cropped_num):
+                top_left_x = rd.randint(0, weight_remain)
+                top_left_y = rd.randint(0, height_remain)
+                # get image file name excluding .jpg
                 pattern = re.compile(r'image_\d*')
                 search = pattern.search(img['imagePath'])
                 image_name = search.group()
-                filename = '/home/yuquanjie/Documents/deep-direct-regression/resized_1000/'\
-                           + image_name + '_' + bytes(i) + '.jpg'
-                # note : 1st dimension is height
-                cv2.imwrite(filename, im[height_rand_idx: height_rand_idx + 1000,
-                            weight_rand_idx: weight_rand_idx + 1000])
-                if visiual:
-                    roi_range = [[weight_rand_idx, weight_rand_idx + 1000],
-                                 [height_rand_idx, height_rand_idx + 1000]]
-                    mydraw.draw_rectangle_image(im, roi_range)
+                jpgname = '/home/yuquanjie/Documents/deep-direct-regression/cropped_image/' \
+                          + image_name + '_' + bytes(i) + '.jpg'
+                cap_img_poly = Polygon([(top_left_x, top_left_y),
+                                        (top_left_x, top_left_y + size),
+                                        (top_left_x + size, top_left_y + size),
+                                        (top_left_x + size, top_left_y)])
+                write_resized_image = True
+                for polygon in img['boxCoord']:
+                    x1 = string.atof(polygon[0])
+                    x2 = string.atof(polygon[2])
+                    x3 = string.atof(polygon[4])
+                    x4 = string.atof(polygon[6])
+
+                    y1 = string.atof(polygon[1])
+                    y2 = string.atof(polygon[3])
+                    y3 = string.atof(polygon[5])
+                    y4 = string.atof(polygon[7])
+                    raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
+
+                    txtname = '/home/yuquanjie/Documents/deep-direct-regression/cropped_image/' \
+                              + image_name + '_' + bytes(i) + '.txt'
+                    # set writting pattern appending
+                    txtwrite = open(txtname, 'a')
+
+                    if raw_img_poly.intersects(cap_img_poly):
+                        inter = raw_img_poly.intersection(cap_img_poly)
+                        # insure the intersected quardrangle's aera is greater than 0
+                        if inter.area == 0:
+                            write_resized_image = False
+                            break
+                        # insure the text region's percentage should  greater than 10%
+                        if inter.area < (size / 10) * (size / 10):
+                            write_resized_image = False
+                            break
+                        # insure the text region's percentage should not greater than 88%
+                        if inter.area > (size - 20) * (size - 20):
+                            write_resized_image = False
+                            break
+                        list_inter = list(inter.exterior.coords)
+                        x1, y1 = list_inter[0][0] - top_left_x, list_inter[0][1] - top_left_y
+                        x2, y2 = list_inter[3][0] - top_left_x, list_inter[3][1] - top_left_y
+                        x3, y3 = list_inter[2][0] - top_left_x, list_inter[2][1] - top_left_y
+                        x4, y4 = list_inter[1][0] - top_left_x, list_inter[1][1] - top_left_y
+                        # insure the top_left coordinates is on the top-left position
+                        if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
+                            write_resized_image = True
+                        else:
+                            write_resized_image = False
+                            break
+                        # insure the intersected poly is quardrangle
+                        if len(list_inter) != 5:
+                            write_resized_image = False
+                            break
+                        # list_inter[0] : top_left, list_inter[1]: down_left, list_inter[2] : dow_righ
+                        strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(x1, y1, x2, y2, x3, y3, x4, y4)
+                        if write_resized_image:
+                            txtwrite.write(strcoord)
+                    else:
+                        write_resized_image = False
+                txtwrite.close()
+                # note : 1st dimension is height, 2nd dimension is width
+                if write_resized_image:
+                    # print 'writing ... {0}'.format(jpgname)
+                    cv2.imwrite(jpgname, im[top_left_y: top_left_y + size, top_left_x: top_left_x + size])
 
 
 def get_resizedimage_toplef_downrig_coord(im, c, size=1000):
@@ -164,6 +217,10 @@ def resize_image_from_textcenter(imgs, size=320):
                             if inter.area == 0:
                                 write_resized_image = False
                                 break
+                            # insure the text region's percentage should  greater than 10%
+                            if inter.area < (size / 10) * (size / 10):
+                                write_resized_image = False
+                                break
                             # insure the text region's percentage should not greater than 88%
                             if inter.area > (size - 20) * (size - 20):
                                 write_resized_image = False
@@ -192,7 +249,8 @@ def resize_image_from_textcenter(imgs, size=320):
                                                                                    bytes(list_inter[2][1] - top_lef[1]),
                                                                                    bytes(list_inter[1][0] - top_lef[0]),
                                                                                    bytes(list_inter[1][1] - top_lef[1]))
-                            txtwrite.write(strcoord)
+                            if write_resized_image:
+                                txtwrite.write(strcoord)
                     txtwrite.close()
                     # note : 1st dimension is height, 2nd dimension is width
                     if write_resized_image:
@@ -203,4 +261,5 @@ def resize_image_from_textcenter(imgs, size=320):
 
 if __name__ == '__main__':
     all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    resize_image_from_textcenter(all_imgs, 320)
+    # resize_image_from_textcenter(all_imgs, 320)
+    capture_image_random(all_imgs, 320, 2200)
