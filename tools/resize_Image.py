@@ -38,29 +38,26 @@ def capture_image_random(imgs, size=320, cropped_num=300):
                 pattern = re.compile(r'image_\d*')
                 search = pattern.search(img['imagePath'])
                 image_name = search.group()
-                jpgname = '/home/yuquanjie/Documents/deep-direct-regression/cropped_image/' \
-                          + image_name + '_' + bytes(i) + '.jpg'
+                jpgname = '/home/yuquanjie/Documents/cropped_image_optimise/' + image_name + '_' + bytes(i) + '.jpg'
+                txtname = '/home/yuquanjie/Documents/cropped_image_optimise/' + image_name + '_' + bytes(i) + '.txt'
                 cap_img_poly = Polygon([(top_left_x, top_left_y),
                                         (top_left_x, top_left_y + size),
                                         (top_left_x + size, top_left_y + size),
                                         (top_left_x + size, top_left_y)])
                 write_resized_image = True
+                # store intersected aeras' coordinates between captured image(320 * 320) and raw image's text region
+                # if write_resized_image = True, then write this list in txt file, avoiding writting so many txt files
+                strcoord_list = []
                 for polygon in img['boxCoord']:
                     x1 = string.atof(polygon[0])
                     x2 = string.atof(polygon[2])
                     x3 = string.atof(polygon[4])
                     x4 = string.atof(polygon[6])
-
                     y1 = string.atof(polygon[1])
                     y2 = string.atof(polygon[3])
                     y3 = string.atof(polygon[5])
                     y4 = string.atof(polygon[7])
                     raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
-
-                    txtname = '/home/yuquanjie/Documents/deep-direct-regression/cropped_image/' \
-                              + image_name + '_' + bytes(i) + '.txt'
-                    # set writting pattern appending
-                    txtwrite = open(txtname, 'a')
 
                     if raw_img_poly.intersects(cap_img_poly):
                         inter = raw_img_poly.intersection(cap_img_poly)
@@ -91,16 +88,19 @@ def capture_image_random(imgs, size=320, cropped_num=300):
                         if len(list_inter) != 5:
                             write_resized_image = False
                             break
-                        # list_inter[0] : top_left, list_inter[1]: down_left, list_inter[2] : dow_righ
+                        # list_inter[0] : top_left, list_inter[1]: down_left, list_inter[2] : dow_righj
                         strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(x1, y1, x2, y2, x3, y3, x4, y4)
-                        if write_resized_image:
-                            txtwrite.write(strcoord)
+                        strcoord_list.append(strcoord)
                     else:
                         write_resized_image = False
-                txtwrite.close()
                 # note : 1st dimension is height, 2nd dimension is width
                 if write_resized_image:
                     # print 'writing ... {0}'.format(jpgname)
+                    # set writting pattern appending
+                    txtwrite = open(txtname, 'a')
+                    for strcoo in strcoord_list:
+                        txtwrite.write(strcoo)
+                    txtwrite.close()
                     cv2.imwrite(jpgname, im[top_left_y: top_left_y + size, top_left_x: top_left_x + size])
 
 
