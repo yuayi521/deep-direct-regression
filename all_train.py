@@ -12,7 +12,6 @@ from keras.callbacks import ModelCheckpoint
 from keras import optimizers
 from keras.layers import Input
 from keras.models import Model, load_model
-from keras.utils.multi_gpu import make_parallel
 import sys
 import numpy as np
 import os
@@ -290,8 +289,6 @@ if __name__ == '__main__':
     # define network
     multi = multi_task(img_input)
     multask_model = Model(img_input, multi[0:2])
-    # parallel training
-    multask_model = make_parallel(multask_model, 4)
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # compile model
@@ -304,6 +301,7 @@ if __name__ == '__main__':
 
     # multask_model = load_model('model/2017-06-23-17-14-loss-decrease-1827-0.65.hdf5',
     #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+
 
     # read training data from h5 file
     print 'reading data from h5 file .....'
