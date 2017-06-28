@@ -14,6 +14,7 @@ import h5py
 from PIL import Image, ImageDraw, ImageFont
 import tools.get_data as get_data
 import tools.point_check as point_check
+import sys
 fnt = ImageFont.truetype('/home/yuquanjie/Download/FreeMono.ttf', size=35)
 
 gpu_id = '0'
@@ -47,6 +48,8 @@ def get_train_data(all_img):
                 img = cv2.imread(imagename)
                 # 1)generate input data, input image, from (1000,1000) to (320,320)
                 img_320 = cv2.resize(img, (320, 320), interpolation=cv2.INTER_CUBIC)
+                # input image dimension is (1, 320, 320, 3)
+                img_320 = np.expand_dims(img_320, axis=0)
                 # 2)generate classification output data
                 # x-axis and y-axis reduced scale
                 reduced_x = float(img.shape[1]) / 80.0
@@ -86,8 +89,6 @@ def get_train_data(all_img):
                     cv2.imshow('img', img_draw)
                     # cv2.waitKey(0)
 
-                # input image dimension is (1, 320, 320, 3)
-                img_320 = np.expand_dims(img_320, axis=0)
                 # output classificaiton label is (1, 80, 80, 1)
                 # calculate ones's locations before expand the dimension of y_class_label
                 one_locs = np.where(y_class_lable > 0)
@@ -98,7 +99,7 @@ def get_train_data(all_img):
                 # statistic number of text region and non-text region
                 num_text_pixel += len(one_locs[0])
                 num_not_text_pixel += 6400 - len(one_locs[0])
-                print '(text pixel / 6400) : {0:.2f}%'.format(len(one_locs[0]) / 6400.0 * 100)
+                # print '(text pixel / 6400) : {0:.2f}%'.format(len(one_locs[0]) / 6400.0 * 100)
 
                 # 3)generate regression output data
                 y_regr_lable = np.zeros((80, 80, 8))
@@ -168,9 +169,9 @@ def get_train_data(all_img):
 if __name__ == '__main__':
     num_text_pixel = 0.0
     num_not_text_pixel = 0.0
-    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/'
-                                                 'deep-direct-regression/resized_320/4')
+    raw_data_path = sys.argv[0]
+    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/cropped_image320/5')
+    all_imgs, numFileTxt = get_data.get_raw_data(raw_data_path)
     data_gen_train = get_train_data(all_imgs)
     X_train, Y_train_cls, Y_train_regr, Z, num_text_pixel_it, num_not_text_pixel_it = data_gen_train.next()
     num_text_pixel += num_text_pixel_it
@@ -195,7 +196,11 @@ if __name__ == '__main__':
     print 'text region percentage is {0:.2f}%'.format(num_text_pixel / (num_not_text_pixel + num_text_pixel) * 100)
 
     # wirte data
-    file_write = h5py.File('train_size320_4_.h5', 'w')
+    # file_write = h5py.File('train_5.h5', 'w')
+    patt = re.compile('/(\d+)')
+    search = patt.search(sys.argv[0])
+    h5filename = search.group()
+    file_write = h5py.File(h5filename, 'w')
     file_write.create_dataset('X_train', data=X_train)
     file_write.create_dataset('Y_train_cls', data=Y_train_cls)
     file_write.create_dataset('Y_train_merge', data=Y_train_merge)
