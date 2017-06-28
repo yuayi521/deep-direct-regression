@@ -14,7 +14,7 @@ def save_groudtruth(im, coords, filename):
     :param filename: image file path
     :return: save image on a directory
     """
-    print filename
+    print 'Saving ground truth ......{0}'.format(filename)
     img_draw = Image.fromarray(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(img_draw)
     for coord in coords:
@@ -58,11 +58,12 @@ def visualize(im, coords, filename):
     cv2.waitKey(0)
 
 
-def get_raw_data(input_path):
+def get_raw_data(input_path, save_gt=False):
     """
     process txt file
     getting all text region's coordinates and number of text region
     :param input_path: a directory has text and image 2 directory
+    :param save_gt: save gt in result/ directory
     :return: 1) a list, each element is a dictionary
              'imagePath'
              'boxCoord'
@@ -74,7 +75,6 @@ def get_raw_data(input_path):
     coords = []  # a list, storing a image's all text region's coordinates which is clockwise
     num_txt = 0
     visual = False
-    save_gt = False
     print('Parsing txt files')
     txt_directory = os.path.join(input_path, 'text')
     all_txt_files = [os.path.join(txt_directory, s) for s in os.listdir(txt_directory)]
@@ -121,4 +121,4 @@ def get_raw_data(input_path):
     return all_txts, num_txt
 
 if __name__ == '__main__':
-    get_raw_data('/home/yuquanjie/Documents/deep-direct-regression/captured_data')
+    get_raw_data('/home/yuquanjie/Documents/cropped_image320/30', True)
