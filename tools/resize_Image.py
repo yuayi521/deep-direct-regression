@@ -15,6 +15,13 @@ import string
 from shapely.geometry import Polygon
 
 
+def roate():
+    """
+    (TODO) rotate a iamge
+    :return:
+    """
+
+
 def capture_image_random(imgs, size=320, cropped_num=300):
     """
     choose a point as top left coord randomly, then each aixs add  320 pixel, generate
