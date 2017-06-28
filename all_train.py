@@ -12,6 +12,7 @@ from keras.callbacks import ModelCheckpoint
 from keras import optimizers
 from keras.layers import Input
 from keras.models import Model, load_model
+from keras.utils.multi_gpu import make_parallel
 import sys
 import numpy as np
 import os
@@ -26,20 +27,20 @@ gpu_id = '0'
 os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
 
-def read_multi_h5file(filenamelist):
+def read_multi_h5file(filelist):
     """
     read multi h5 file
-    :param filenamelist:
+    :param filelist:
     :return: network input X and output Y
     """
-    read = h5py.File(filenamelist[0], 'r')
+    read = h5py.File(filelist[0], 'r')
     x_train = read['X_train'][:]
     y_1_cls = read['Y_train_cls'][:]
     y_2_mer = read['Y_train_merge'][:]
     read.close()
 
-    for idx in range(1, len(filenamelist)):
-        read = h5py.File(filenamelist[idx], 'r')
+    for idx in range(1, len(filelist)):
+        read = h5py.File(filelist[idx], 'r')
         x_ite = read['X_train'][:]
         y_1_cls_ite = read['Y_train_cls'][:]
         y_2_mer_ite = read['Y_train_merge'][:]
@@ -289,6 +290,8 @@ if __name__ == '__main__':
     # define network
     multi = multi_task(img_input)
     multask_model = Model(img_input, multi[0:2])
+    # parallel training
+    multask_model = make_parallel(multask_model, 4)
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # compile model
