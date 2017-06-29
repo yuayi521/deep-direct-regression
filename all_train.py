@@ -12,15 +12,20 @@ from keras.callbacks import ModelCheckpoint
 from keras import optimizers
 from keras.layers import Input
 from keras.models import Model, load_model
-import sys
+from shapely.geometry import Polygon
+from keras.preprocessing.image import list_pictures
+import tools.point_check as point_check
+import cv2
+import string
 import numpy as np
+import random as rd
 import os
+import re
 import h5py
 import tensorflow as tf
 import datetime
 import matplotlib.pyplot as plt
 
-sys.path.append('/home/yuquanjie/Documents/deep-direct-regression/tools')
 HUBER_DELTA = 1.0
 gpu_id = '0'
 os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
@@ -283,6 +288,212 @@ def plot_model_history(model_history):
     plt.show()
 
 
+def read_txts(txtpath):
+    """
+
+    :param txtpath:
+    :return: a list containing all text region clockwise coordinates which sotred in a tuple
+    """
+    coords = []
+    with open(txtpath, 'r') as f:
+        for line in f:
+            line_split = line.strip().split(',')
+            # clockwise
+            (x1, y1, x2, y2) = line_split[0:4]
+            (x3, y3, x4, y4) = line_split[4:8]
+            coords.append((x1, y1, x2, y2, x3, y3, x4, y4))
+    return coords
+
+
+def random_crop(image, txts, crop_size=320):
+    """
+
+    :param image:
+    :param txts:
+    :param crop_size:
+    :return:
+    """
+
+    ret_cropped_img = True
+    height = image.shape[1]
+    width = image.shape[0]
+    if width < crop_size or height < crop_size:
+        return None
+    for idx in xrange(30000):
+        strcoord_list = []
+        x = rd.randint(0, width - crop_size + 1)
+        y = rd.randint(0, height - crop_size + 1)
+        cropped_img_poly = Polygon([(x, y), (x, y + crop_size),
+                                    (x + crop_size, y + crop_size), (x + crop_size, y)])
+        for txt in txts:
+            x1 = string.atof(txt[0])
+            x2 = string.atof(txt[2])
+            x3 = string.atof(txt[4])
+            x4 = string.atof(txt[6])
+            y1 = string.atof(txt[1])
+            y2 = string.atof(txt[3])
+            y3 = string.atof(txt[5])
+            y4 = string.atof(txt[7])
+            rawimg_txt_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
+
+            if rawimg_txt_poly.intersects(cropped_img_poly):
+                inter = rawimg_txt_poly.intersection(cropped_img_poly)
+                # insure the intersected quardrangle's aera is greater than 0
+                if inter.area == 0:
+                    ret_cropped_img = False
+                    break
+                # insure the text region's percentage should  greater than 10%
+                if inter.area < (crop_size / 10) * (crop_size / 10):
+                    ret_cropped_img = False
+                    break
+                # insure the text region's percentage should not greater than 88%
+                if inter.area > (crop_size - 20) * (crop_size - 20):
+                    ret_cropped_img = False
+                    break
+                list_inter = list(inter.exterior.coords)
+                x1, y1 = list_inter[0][0] - x, list_inter[0][1] - y
+                x2, y2 = list_inter[3][0] - x, list_inter[3][1] - y
+                x3, y3 = list_inter[2][0] - x, list_inter[2][1] - y
+                x4, y4 = list_inter[1][0] - x, list_inter[1][1] - y
+                # insure the top_left coordinates is on the top-left position
+                if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
+                    ret_cropped_img = True
+                else:
+                    ret_cropped_img = False
+                    break
+                    # insure the intersected poly is quardrangle
+                if len(list_inter) != 5:
+                    ret_cropped_img = False
+                    break
+                    # list_inter[0] : top_left, list_inter[1]: down_left, list_inter[2] : dow_righj
+                strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(x1, y1, x2, y2, x3, y3, x4, y4)
+                strcoord_list.append(strcoord)
+            else:
+                ret_cropped_img = False
+                break
+        if ret_cropped_img:
+            break
+    return image[y:(y + crop_size), x:(x + crop_size), :], strcoord_list
+
+
+def image_generator(list_of_files, crop_size=320, scale=1):
+    """
+    this is a python generator, return array format image
+    :param list_of_files: list, storing all jpg file path
+    :param crop_size: cropped image size
+    :param scale: normalization parameters
+    :return: return array format image
+    """
+    while True:
+        filename = np.random.choice(list_of_files)
+        print 'jpg file name is {0}'.format(filename)
+        img = cv2.imread(filename)
+        pattern = re.compile('jpg')
+        txtpath = pattern.sub('txt', filename)
+        txts = read_txts(txtpath)
+        cropped_image, text_region = random_crop(img, txts, crop_size)
+        if cropped_image is None or text_region is None:
+            continue
+        yield [scale * cropped_image, text_region]
+
+
+def image_output_pair(images):
+    """
+
+    :param images:
+    :return:
+    """
+    for img, txtreg in images:
+        # 1) generate imput data, input data is (1, 320, 320, 3)
+        img = np.expand_dims(img, axis=0)
+        # 2) generate clsssification data
+        # x-axis and y-axis reduced scale
+        reduced_x = float(img.shape[1]) / 80.0
+        reduced_y = float(img.shape[0]) / 80.0
+        y_class_label = -1 * np.ones((80, 80))  # negative lable is -1
+        for ix in xrange(y_class_label.shape[0]):
+            for jy in xrange(y_class_label.shape[1]):
+                for polygon in txtreg:
+                    x1 = string.atof(polygon[0]) / reduced_x
+                    x2 = string.atof(polygon[2]) / reduced_x
+                    x3 = string.atof(polygon[4]) / reduced_x
+                    x4 = string.atof(polygon[6]) / reduced_x
+                    y1 = string.atof(polygon[1]) / reduced_y
+                    y2 = string.atof(polygon[3]) / reduced_y
+                    y3 = string.atof(polygon[5]) / reduced_y
+                    y4 = string.atof(polygon[7]) / reduced_y
+                    polygon = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
+                    if point_check.point_in_polygon(ix, jy, polygon):
+                        y_class_label[ix][jy] = 1
+        # output classificaiton label is (1, 80, 80, 1)
+        # calculate ones's locations before expand the dimension of y_class_label
+        one_locs = np.where(y_class_label > 0)
+        y_class_label = np.expand_dims(y_class_label, axis=0)
+        y_class_label = np.expand_dims(y_class_label, axis=3)
+        # 3) generate regression data
+        y_regr_lable = np.zeros((80, 80, 8))
+        # visit all text pixel
+        for idx in xrange(len(one_locs[0])):
+            # judge text pixel belong to which box
+            for polygon in txtreg:
+                x1 = string.atof(polygon[0]) / reduced_x
+                x2 = string.atof(polygon[2]) / reduced_x
+                x3 = string.atof(polygon[4]) / reduced_x
+                x4 = string.atof(polygon[6]) / reduced_x
+                y1 = string.atof(polygon[1]) / reduced_y
+                y2 = string.atof(polygon[3]) / reduced_y
+                y3 = string.atof(polygon[5]) / reduced_y
+                y4 = string.atof(polygon[7]) / reduced_y
+                # 80 * 80  size image's quardrangle
+                quard = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
+                ix = one_locs[0][idx]
+                jy = one_locs[1][idx]
+                # (ix, jy) pixel belong to quardragle quard
+                if point_check.point_in_polygon(ix, jy, quard):
+                    top_left_x = quard[0][0]
+                    top_left_y = quard[0][1]
+                    top_righ_x = quard[1][0]
+                    top_righ_y = quard[1][1]
+                    dow_righ_x = quard[2][0]
+                    dow_righ_y = quard[2][1]
+                    dow_left_x = quard[3][0]
+                    dow_left_y = quard[3][1]
+                    y_regr_lable[ix][jy][0] = top_left_x * 4 - ix * 4
+                    y_regr_lable[ix][jy][1] = top_left_y * 4 - jy * 4
+                    y_regr_lable[ix][jy][2] = top_righ_x * 4 - ix * 4
+                    y_regr_lable[ix][jy][3] = top_righ_y * 4 - jy * 4
+                    y_regr_lable[ix][jy][4] = dow_righ_x * 4 - ix * 4
+                    y_regr_lable[ix][jy][5] = dow_righ_y * 4 - jy * 4
+                    y_regr_lable[ix][jy][6] = dow_left_x * 4 - ix * 4
+                    y_regr_lable[ix][jy][7] = dow_left_y * 4 - jy * 4
+        y_regr_label = np.expand_dims(y_regr_lable, axis=0)
+        y_merge_label = np.concatenate((y_regr_label, y_class_label), axis=-1)
+        yield (img, y_class_label, y_merge_label)
+
+
+def group_by_batch(dataset, batch_size):
+    """
+
+    :param dataset:
+    :param batch_size:
+    :return:
+    """
+    while True:
+        img, y_class_label, y_merge_label = zip(*[dataset.next() for i in xrange(batch_size)])
+        batch = (np.stack(img), [np.stack(y_class_label), np.stack(y_merge_label)])
+        yield batch
+
+
+def load_dataset(directory, crop_size=320, batch_size=32):
+    files = list_pictures(directory, 'jpg')
+    generator = image_generator(files, crop_size, scale=1/255.0)
+    for gen in generator:
+        print gen[1]
+    # generator = image_output_pair(generator)
+    # generator = group_by_batch(generator, batch_size)
+    return generator
+
+
 if __name__ == '__main__':
     # define Input
     img_input = Input((320, 320, 3))
@@ -294,28 +505,23 @@ if __name__ == '__main__':
     # compile model
     # multask_model.compile(loss=[my_hinge, smooth_l1], optimizer=sgd)
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=['acc'])
-
     # resume training
-    # model.save_weights() use load_weights()
-    # multask_model.load_weights('model/2017-06-23-17-14-loss-decrease-1827-0.65.hdf5')
-
     # multask_model = load_model('model/2017-06-23-17-14-loss-decrease-1827-0.65.hdf5',
     #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
 
+    # use python generator to generate training data
 
-    # read training data from h5 file
-    print 'reading data from h5 file .....'
-    filenamelist = ['dataset/train_size320_1_.h5', 'dataset/train_size320_2_.h5', 'dataset/train_size320_3_.h5']
-    X, Y = read_multi_h5file(filenamelist)
-    print 'traning data, input shape is {0}, output classifiction shape is {1}, regression shape is {2}'. \
-        format(X.shape, Y[0].shape, Y[1].shape)
-    # saved model file path and name
+    # train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/train', 320, 8)
+    # for it in train_set:
+    #    print it[0]
+
+    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/val', 320, 8)
     # get date and time
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
     filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    model_info = loss_class = multask_model.fit(X, Y, batch_size=64, epochs=83, shuffle=True,
-                                                callbacks=callbacks_list, verbose=1, validation_split=0.1)
-    plot_model_history(model_info)
+    # model_info = multask_model.fit_generator(train_set, steps_per_epoch=100000, epochs=10000, validation_data=val_set,
+    #                                        callbacks=callbacks_list, validation_steps=1000)
+    # plot_model_history(model_info)
