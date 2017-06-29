@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 import tools.get_data as get_data
 import tools.point_check as point_check
 import sys
+import time
 fnt = ImageFont.truetype('/home/yuquanjie/Download/FreeMono.ttf', size=35)
 
 gpu_id = '0'
@@ -44,7 +45,7 @@ def get_train_data(all_img):
             txtname = pattern.sub('txt', txtname)  # ..../text/image_1000.jpg  => ..../text/image_1000.txt
             # insure the jpg file is not empty, and insure the .txt and .jpg file both exist
             if os.path.isfile(imagename) and os.path.isfile(txtname) and os.path.getsize(imagename):
-                print imagename
+                # print imagename
                 img = cv2.imread(imagename)
                 # 1)generate input data, input image, from (1000,1000) to (320,320)
                 img_320 = cv2.resize(img, (320, 320), interpolation=cv2.INTER_CUBIC)
@@ -167,41 +168,44 @@ def get_train_data(all_img):
 
 
 if __name__ == '__main__':
-    num_text_pixel = 0.0
-    num_not_text_pixel = 0.0
-    raw_data_path = sys.argv[0]
+    n_text_pixel = 0.0
+    n_not_text_pixel = 0.0
+    raw_data_path = sys.argv[1]
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/cropped_image320/5')
     all_imgs, numFileTxt = get_data.get_raw_data(raw_data_path)
+    # object of python generator
     data_gen_train = get_train_data(all_imgs)
-    X_train, Y_train_cls, Y_train_regr, Z, num_text_pixel_it, num_not_text_pixel_it = data_gen_train.next()
-    num_text_pixel += num_text_pixel_it
-    num_not_text_pixel += num_not_text_pixel_it
-    Y_train_merge = np.concatenate([Y_train_regr, Y_train_cls], axis=3)
-    for i in range(6000):
-        X_train_iter, Y_train_cls_iter, Y_train_regr_iter, Z, num_text_pixel_it, num_not_text_pixel_it = data_gen_train.next()
+    X_train_list = []
+    Y_train_cls_list = []
+    Y_train_mer_list = []
+    start_time = time.time()
+    print 'start time is {0}'.format(start_time)
+    for i in range(3000):
+        if i % 100 == 0:
+            print 'has precessed {0}'.format(i)
+        X_train_it, Y_train_cls_it, Y_train_reg_it, Z, num_text_pixel_it, num_not_text_pixel_it = data_gen_train.next()
+        X_train_list.append(X_train_it)
+        Y_train_cls_list.append(Y_train_cls_it)
+        Y_train_mer_list.append(np.concatenate([Y_train_reg_it, Y_train_cls_it], axis=3))
+        n_text_pixel += num_text_pixel_it
+        n_not_text_pixel += num_not_text_pixel_it
 
-        num_text_pixel += num_text_pixel_it
-        num_not_text_pixel += num_not_text_pixel_it
-
-        X_train = np.concatenate([X_train, X_train_iter], axis=0)
-        Y_train_cls = np.concatenate([Y_train_cls, Y_train_cls_iter], axis=0)
-
-        Y_train_merge_iter = np.concatenate([Y_train_regr_iter, Y_train_cls_iter], axis=3)
-        Y_train_merge = np.concatenate([Y_train_merge, Y_train_merge_iter], axis=0)
-    Y = [Y_train_cls, Y_train_merge]
+    X_train = np.stack(X_train_list, axis=0)
+    Y_train_cls = np.stack(Y_train_cls_list, axis=0)
+    Y_train_mer = np.stack(Y_train_mer_list, axis=0)
+    Y = [Y_train_cls, Y_train_mer]
 
     print 'input training data shape is {0}'.format(X_train.shape)
-    print 'output training data shape is {0}'.format(Y_train_merge.shape)
+    print 'output training data shape is {0}'.format(Y_train_mer.shape)
     # print the percentage between text region and all region
-    print 'text region percentage is {0:.2f}%'.format(num_text_pixel / (num_not_text_pixel + num_text_pixel) * 100)
+    print 'text region percentage is {0:.2f}%'.format(n_text_pixel / (n_not_text_pixel + n_text_pixel) * 100)
 
     # wirte data
     # file_write = h5py.File('train_5.h5', 'w')
-    patt = re.compile('/(\d+)')
-    search = patt.search(sys.argv[0])
-    h5filename = search.group()
+    h5filename = sys.argv[2]
     file_write = h5py.File(h5filename, 'w')
     file_write.create_dataset('X_train', data=X_train)
     file_write.create_dataset('Y_train_cls', data=Y_train_cls)
-    file_write.create_dataset('Y_train_merge', data=Y_train_merge)
+    file_write.create_dataset('Y_train_merge', data=Y_train_mer)
     file_write.close()
+    print 'processing 0.2 million training data time is {0}'.format(time.time() - start_time)
