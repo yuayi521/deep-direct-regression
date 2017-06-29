@@ -525,3 +525,4 @@ if __name__ == '__main__':
     # model_info = multask_model.fit_generator(train_set, steps_per_epoch=100000, epochs=10000, validation_data=val_set,
     #                                        callbacks=callbacks_list, validation_steps=1000)
     # plot_model_history(model_info)
+    # plot_model_history(model_info)
