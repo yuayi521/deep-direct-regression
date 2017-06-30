@@ -386,22 +386,31 @@ def image_generator(list_of_files, crop_size=320, scale=1):
     :return: return array format image
     """
     while True:
-        filename = np.random.choice(list_of_files)
-        img = cv2.imread(filename)
+        text_region = []
+        jpgname = np.random.choice(list_of_files)
+        img = cv2.imread(jpgname)
         pattern = re.compile('jpg')
-        txtpath = pattern.sub('txt', filename)
-        if os.path.isfile(txtpath):
-            txts = read_txts(txtpath)
-        else:
+        txtname = pattern.sub('txt', jpgname)
+        if not os.path.isfile(txtname):
             continue
-        cropped_image, text_region = random_crop(img, txts, crop_size)
+        cropped_image = img
+        with open(txtname, 'r') as f:
+            for line in f:
+                line_split = line.strip().split(',')
+                # clockwise
+                (x1, y1, x2, y2) = line_split[0:4]
+                (x3, y3, x4, y4) = line_split[4:8]
+                text_region.append([string.atof(x1), string.atof(y1), string.atof(x2), string.atof(y2),
+                                    string.atof(x3), string.atof(y3), string.atof(x4), string.atof(y4)])
+
         if cropped_image is None or text_region is None or \
                 cropped_image.shape[0] != crop_size or cropped_image.shape[1] != crop_size:
             continue
+
         # save middle result
         if False:
             pattern = re.compile(r'image_\d*')
-            search = pattern.search(filename)
+            search = pattern.search(jpgname)
             image_name = search.group()
             jpgname = '/home/yuquanjie/Documents/visual/' + image_name + '_' + bytes(10) + '.jpg'
             txtname = '/home/yuquanjie/Documents/visual/' + image_name + '_' + bytes(10) + '.txt'
@@ -514,7 +523,7 @@ if __name__ == '__main__':
     #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
 
     # use python generator to generate training data
-    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset_cropped320/train', 320, 64)
+    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_cropped320', 320, 64)
     # val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/val', 320, 8)
     # get date and time
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
