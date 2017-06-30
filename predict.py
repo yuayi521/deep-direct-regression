@@ -8,7 +8,6 @@ from keras.layers import Convolution2D, MaxPooling2D, BatchNormalization
 from keras.layers.convolutional import Conv2DTranspose
 from keras.layers.merge import add
 from keras.layers.core import Lambda
-from keras import backend as K
 from keras import optimizers
 from keras.layers import Input
 from keras.models import Model, load_model
@@ -71,37 +70,6 @@ def new_smooth(y_true, y_pred):
     loss = tf.reduce_mean(loss, axis=-1)
     # loss_batch = loss / tf.to_float(tf.shape(y_true)[0])
     return loss
-
-
-def smoothL1(y_true, y_pred):
-    # print y_true
-    import tensorflow as tf
-    # 1. slice
-    # conTmp = tf.slice(y_true, [0, 0, 0, 8],[1, 80, 80, 1])
-    # 2. concatenate
-    # tmp = tf.expand_dims(y_true[:, :, :, 8], 3)  page 27 helped by hl
-    tmp = tf.expand_dims(y_true[:, :, :, 8], 3)
-    # print tmp
-    y_true = tf.concat([y_true, tmp], 3)
-    y_true = tf.concat([y_true, tmp], 3)
-    y_true = tf.concat([y_true, tmp], 3)
-
-    y_true = tf.concat([y_true, tmp], 3)
-    y_true = tf.concat([y_true, tmp], 3)
-    y_true = tf.concat([y_true, tmp], 3)
-    y_true = tf.concat([y_true, tmp], 3)
-    # print y_true
-    x = K.abs(y_true[:, :, :, 0:8] - y_pred)
-    if K._BACKEND == 'tensorflow':
-        import tensorflow as tf
-        x = tf.where(tf.greater(HUBER_DELTA, x),
-                     0.5 * x ** 2,
-                     HUBER_DELTA * (x - 0.5 * HUBER_DELTA))
-        x = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
-                     y_true[:, :, :, 8:16],
-                     0 * y_true[:, :, :, 8:16]) * x
-        # return  K.sum(x)
-        return K.mean(x, axis=-1)
 
 
 def multi_task(input_tensor=None, trainable=False):
@@ -185,12 +153,12 @@ def multi_task(input_tensor=None, trainable=False):
     return [x_clas, x_regr, x]
 
 
-def get_train_data(all_imgs):
+def get_train_data(all_img):
     visulise = False
     num_text = 0.0
     num_no_text = 0.0
     while True:
-        for img_data in all_imgs:
+        for img_data in all_img:
             print img_data['imagePath']
             # image file wheater corresponding to text fle
             annot = img_data['imagePath']
@@ -271,7 +239,7 @@ def get_train_data(all_imgs):
                 # print len(one_locs[0])
                 num_text += len(one_locs[0])
                 num_no_text += 6400 - len(one_locs[0])
-                print len(one_locs[0]) / (6400.0 - len(one_locs[0]))
+                # print len(one_locs[0]) / (6400.0 - len(one_locs[0]))
                 # 2.2)generate regression output data
                 # y_regr_lable = np.zeros((80,80,8)).astype(np.float32)
                 y_regr_lable = np.zeros((80, 80, 8))
@@ -343,7 +311,7 @@ if __name__ == '__main__':
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # compile model
     # multask_model.compile(loss=[my_hinge, smoothL1], optimizer=sgd)
-    multask_model.compile(loss=[my_hinge, smoothL1], optimizer=sgd)
+    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # read test data from h5 file
     """
     file = h5py.File('dataset/train_dataset-1500.h5', 'r')
@@ -353,7 +321,7 @@ if __name__ == '__main__':
     """
     # train data, test model using train data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/deep-direct-regression/captured_data')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/shumei_crop')
     # test data , test model using test data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part6')
     data_gen_train = get_train_data(all_imgs)
@@ -361,7 +329,10 @@ if __name__ == '__main__':
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
         # load model
         # negative label is -1
-        final_model = load_model('model/2017-06-22-17-28-loss-decrease-868-0.48.hdf5',
+        # 1000 * 1000
+        # final_model = load_model('model/2017-06-22-17-28-loss-decrease-868-0.48.hdf5',
+        #                          custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+        final_model = load_model('model/2017-06-26-16-24-loss-decrease-82-1.20.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(X)
@@ -423,8 +394,10 @@ if __name__ == '__main__':
         img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
 
         # get image name excluding directory path using regular expression
-        pattern = re.compile(r'image_\d*_\d*\.jpg')
-        search = pattern.search(img_data['imagePath'])
-        image_name = search.group()
+        image_name = img_data['imagePath'].split('/')[-1]
         image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name
         cv2.imwrite(image_path, img_draw[0: img_draw.shape[0], 0: img_draw.shape[1]])
+
+
+
+
