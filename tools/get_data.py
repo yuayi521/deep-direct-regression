@@ -24,14 +24,8 @@ def save_groudtruth(im, coords, filename):
                      outline="red", fill="blue")
     img_draw = np.array(img_draw)
     img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
-    # get image name using regular expression
-    pattern = re.compile(r'image_\d*_\d*')
-    # pattern = re.compile(r'\d*_\d*')
-    search = pattern.search(filename)
-    image_name = search.group()
-    image_name += '_'
-    image_name += ".jpg"
-    image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name
+    bname_excludepoint = filename.split('/')[-1].split('.')[0]
+    image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + bname_excludepoint + '_gt.jpg'
     cv2.imwrite(image_path, img_draw[0: img_draw.shape[0], 0: img_draw.shape[1]])
 
 
@@ -121,4 +115,4 @@ def get_raw_data(input_path, save_gt=False):
     return all_txts, num_txt
 
 if __name__ == '__main__':
-    get_raw_data('/home/yuquanjie/Documents/icdar2017_cropped320', True)
+    get_raw_data('/home/yuquanjie/Documents/shumei_crop', True)
