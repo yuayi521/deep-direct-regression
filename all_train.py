@@ -514,7 +514,7 @@ if __name__ == '__main__':
     #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
 
     # use python generator to generate training data
-    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/train', 320, 64)
+    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset_cropped320/train', 320, 64)
     # val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/val', 320, 8)
     # get date and time
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
