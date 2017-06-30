@@ -317,7 +317,6 @@ def random_crop(image, txts, crop_size=320):
     height = image.shape[1]
     width = image.shape[0]
     strcoord_list = []
-    str_list = []
     x, y = 0, 0
     if width < crop_size or height < crop_size:
         return None, None
@@ -325,7 +324,6 @@ def random_crop(image, txts, crop_size=320):
     # image and its text region coordinates
     for idx in xrange(2000):
         strcoord_list = []
-        str_list = []
         x = rd.randint(0, width - crop_size)
         y = rd.randint(0, height - crop_size)
         cropped_img_poly = Polygon([(x, y), (x, y + crop_size),
@@ -365,8 +363,6 @@ def random_crop(image, txts, crop_size=320):
                 if len(list_inter) != 5:
                     ret_cropped_img = False
                     break
-                strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(x1, y1, x2, y2, x3, y3, x4, y4)
-                str_list.append(strcoord)
                 strcoord_list.append([x1, y1, x2, y2, x3, y3, x4, y4])
             else:
                 ret_cropped_img = False
@@ -376,18 +372,6 @@ def random_crop(image, txts, crop_size=320):
     # ret_cropped_img is True, represent cropped iamge correctly, and the cropped image has
     # text region, the percentage range form 10 % to 88%
     if ret_cropped_img:
-        # visual
-        idx = rd.randint(1, 100000)
-        idx_1 = rd.randint(1, 100000)
-        jpgname = '/home/yuquanjie/Documents/visual/' + bytes(idx) + '_' + bytes(idx_1) + '.jpg'
-        txtname = '/home/yuquanjie/Documents/visual/' + bytes(idx) + '_' + bytes(idx_1) + '.txt'
-        print 'writing ..... {0}'.format(jpgname)
-        cv2.imwrite(jpgname, image[y:(y + crop_size), x:(x + crop_size), :])
-        txtwirte = open(txtname, 'a')
-        for txt in str_list:
-            txtwirte.write(txt)
-        txtwirte.close()
-        # visual
         return image[y:(y + crop_size), x:(x + crop_size), :], strcoord_list
     else:
         return None, None
@@ -414,6 +398,22 @@ def image_generator(list_of_files, crop_size=320, scale=1):
         if cropped_image is None or text_region is None or \
                 cropped_image.shape[0] != crop_size or cropped_image.shape[1] != crop_size:
             continue
+        # save middle result
+        if False:
+            pattern = re.compile(r'image_\d*')
+            search = pattern.search(filename)
+            image_name = search.group()
+            jpgname = '/home/yuquanjie/Documents/visual/' + image_name + '_' + bytes(10) + '.jpg'
+            txtname = '/home/yuquanjie/Documents/visual/' + image_name + '_' + bytes(10) + '.txt'
+            # print 'writing ... {0}'.format(jpgname)
+            cv2.imwrite(jpgname, cropped_image)
+            txtwrite = open(txtname, 'a')
+            for txt in text_region:
+                for it in txt:
+                    txtwrite.write(bytes(it) + ',')
+                txtwrite.write('\n')
+            txtwrite.close()
+        # save middle result
         yield [scale * cropped_image, text_region]
 
 
@@ -514,7 +514,7 @@ if __name__ == '__main__':
     #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
 
     # use python generator to generate training data
-    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/train', 320, 32)
+    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/train', 320, 64)
     # val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/val', 320, 8)
     # get date and time
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
@@ -522,6 +522,6 @@ if __name__ == '__main__':
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    model_info = multask_model.fit_generator(train_set, steps_per_epoch=10, epochs=1000,
+    model_info = multask_model.fit_generator(train_set, steps_per_epoch=1000, epochs=1000,
                                              callbacks=callbacks_list)
     # plot_model_history(model_info)
