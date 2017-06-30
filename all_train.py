@@ -313,29 +313,29 @@ def random_crop(image, txts, crop_size=320):
     :param crop_size:
     :return:
     """
-
     ret_cropped_img = True
     height = image.shape[1]
     width = image.shape[0]
+    strcoord_list = []
+    str_list = []
+    x, y = 0, 0
     if width < crop_size or height < crop_size:
-        return None
-    for idx in xrange(30000):
+        return None, None
+    # once find a cropped image which has intersections with raw image's text region, then jump out, and return cropped
+    # image and its text region coordinates
+    for idx in xrange(2000):
         strcoord_list = []
-        x = rd.randint(0, width - crop_size + 1)
-        y = rd.randint(0, height - crop_size + 1)
+        str_list = []
+        x = rd.randint(0, width - crop_size)
+        y = rd.randint(0, height - crop_size)
         cropped_img_poly = Polygon([(x, y), (x, y + crop_size),
                                     (x + crop_size, y + crop_size), (x + crop_size, y)])
         for txt in txts:
-            x1 = string.atof(txt[0])
-            x2 = string.atof(txt[2])
-            x3 = string.atof(txt[4])
-            x4 = string.atof(txt[6])
-            y1 = string.atof(txt[1])
-            y2 = string.atof(txt[3])
-            y3 = string.atof(txt[5])
-            y4 = string.atof(txt[7])
+            x1, x2 = string.atof(txt[0]), string.atof(txt[2])
+            x3, x4 = string.atof(txt[4]), string.atof(txt[6])
+            y1, y2 = string.atof(txt[1]), string.atof(txt[3])
+            y3, y4 = string.atof(txt[5]), string.atof(txt[7])
             rawimg_txt_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
-
             if rawimg_txt_poly.intersects(cropped_img_poly):
                 inter = rawimg_txt_poly.intersection(cropped_img_poly)
                 # insure the intersected quardrangle's aera is greater than 0
@@ -365,15 +365,32 @@ def random_crop(image, txts, crop_size=320):
                 if len(list_inter) != 5:
                     ret_cropped_img = False
                     break
-                    # list_inter[0] : top_left, list_inter[1]: down_left, list_inter[2] : dow_righj
                 strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(x1, y1, x2, y2, x3, y3, x4, y4)
-                strcoord_list.append(strcoord)
+                str_list.append(strcoord)
+                strcoord_list.append([x1, y1, x2, y2, x3, y3, x4, y4])
             else:
                 ret_cropped_img = False
                 break
         if ret_cropped_img:
             break
-    return image[y:(y + crop_size), x:(x + crop_size), :], strcoord_list
+    # ret_cropped_img is True, represent cropped iamge correctly, and the cropped image has
+    # text region, the percentage range form 10 % to 88%
+    if ret_cropped_img:
+        # visual
+        idx = rd.randint(1, 100000)
+        idx_1 = rd.randint(1, 100000)
+        jpgname = '/home/yuquanjie/Documents/visual/' + bytes(idx) + '_' + bytes(idx_1) + '.jpg'
+        txtname = '/home/yuquanjie/Documents/visual/' + bytes(idx) + '_' + bytes(idx_1) + '.txt'
+        print 'writing ..... {0}'.format(jpgname)
+        cv2.imwrite(jpgname, image[y:(y + crop_size), x:(x + crop_size), :])
+        txtwirte = open(txtname, 'a')
+        for txt in str_list:
+            txtwirte.write(txt)
+        txtwirte.close()
+        # visual
+        return image[y:(y + crop_size), x:(x + crop_size), :], strcoord_list
+    else:
+        return None, None
 
 
 def image_generator(list_of_files, crop_size=320, scale=1):
@@ -386,13 +403,16 @@ def image_generator(list_of_files, crop_size=320, scale=1):
     """
     while True:
         filename = np.random.choice(list_of_files)
-        print 'jpg file name is {0}'.format(filename)
         img = cv2.imread(filename)
         pattern = re.compile('jpg')
         txtpath = pattern.sub('txt', filename)
-        txts = read_txts(txtpath)
+        if os.path.isfile(txtpath):
+            txts = read_txts(txtpath)
+        else:
+            continue
         cropped_image, text_region = random_crop(img, txts, crop_size)
-        if cropped_image is None or text_region is None:
+        if cropped_image is None or text_region is None or \
+                cropped_image.shape[0] != crop_size or cropped_image.shape[1] != crop_size:
             continue
         yield [scale * cropped_image, text_region]
 
@@ -404,8 +424,7 @@ def image_output_pair(images):
     :return:
     """
     for img, txtreg in images:
-        # 1) generate imput data, input data is (1, 320, 320, 3)
-        img = np.expand_dims(img, axis=0)
+        # 1) generate imput data, input data is (320, 320, 3)
         # 2) generate clsssification data
         # x-axis and y-axis reduced scale
         reduced_x = float(img.shape[1]) / 80.0
@@ -414,50 +433,38 @@ def image_output_pair(images):
         for ix in xrange(y_class_label.shape[0]):
             for jy in xrange(y_class_label.shape[1]):
                 for polygon in txtreg:
-                    x1 = string.atof(polygon[0]) / reduced_x
-                    x2 = string.atof(polygon[2]) / reduced_x
-                    x3 = string.atof(polygon[4]) / reduced_x
-                    x4 = string.atof(polygon[6]) / reduced_x
-                    y1 = string.atof(polygon[1]) / reduced_y
-                    y2 = string.atof(polygon[3]) / reduced_y
-                    y3 = string.atof(polygon[5]) / reduced_y
-                    y4 = string.atof(polygon[7]) / reduced_y
+                    x1, x2 = polygon[0] / reduced_x, polygon[2] / reduced_x
+                    x3, x4 = polygon[4] / reduced_x, polygon[6] / reduced_x
+                    y1, y2 = polygon[1] / reduced_y, polygon[3] / reduced_y
+                    y3, y4 = polygon[5] / reduced_y, polygon[7] / reduced_y
                     polygon = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
                     if point_check.point_in_polygon(ix, jy, polygon):
                         y_class_label[ix][jy] = 1
-        # output classificaiton label is (1, 80, 80, 1)
+        # output classificaiton label is (80, 80, 1)
         # calculate ones's locations before expand the dimension of y_class_label
         one_locs = np.where(y_class_label > 0)
-        y_class_label = np.expand_dims(y_class_label, axis=0)
-        y_class_label = np.expand_dims(y_class_label, axis=3)
+        y_class_label = np.expand_dims(y_class_label, axis=-1)
         # 3) generate regression data
         y_regr_lable = np.zeros((80, 80, 8))
         # visit all text pixel
         for idx in xrange(len(one_locs[0])):
             # judge text pixel belong to which box
             for polygon in txtreg:
-                x1 = string.atof(polygon[0]) / reduced_x
-                x2 = string.atof(polygon[2]) / reduced_x
-                x3 = string.atof(polygon[4]) / reduced_x
-                x4 = string.atof(polygon[6]) / reduced_x
-                y1 = string.atof(polygon[1]) / reduced_y
-                y2 = string.atof(polygon[3]) / reduced_y
-                y3 = string.atof(polygon[5]) / reduced_y
-                y4 = string.atof(polygon[7]) / reduced_y
+                x1, x2 = polygon[0] / reduced_x, polygon[2] / reduced_x
+                x3, x4 = polygon[4] / reduced_x, polygon[6] / reduced_x
+                y1, y2 = polygon[1] / reduced_y, polygon[3] / reduced_y
+                y3, y4 = polygon[5] / reduced_y, polygon[7] / reduced_y
                 # 80 * 80  size image's quardrangle
                 quard = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
                 ix = one_locs[0][idx]
                 jy = one_locs[1][idx]
                 # (ix, jy) pixel belong to quardragle quard
                 if point_check.point_in_polygon(ix, jy, quard):
-                    top_left_x = quard[0][0]
-                    top_left_y = quard[0][1]
-                    top_righ_x = quard[1][0]
-                    top_righ_y = quard[1][1]
-                    dow_righ_x = quard[2][0]
-                    dow_righ_y = quard[2][1]
-                    dow_left_x = quard[3][0]
-                    dow_left_y = quard[3][1]
+                    top_left_x, top_left_y = quard[0][0], quard[0][1]
+                    top_righ_x, top_righ_y = quard[1][0], quard[1][1]
+                    dow_righ_x, dow_righ_y = quard[2][0], quard[2][1]
+                    dow_left_x, dow_left_y = quard[3][0], quard[3][1]
+
                     y_regr_lable[ix][jy][0] = top_left_x * 4 - ix * 4
                     y_regr_lable[ix][jy][1] = top_left_y * 4 - jy * 4
                     y_regr_lable[ix][jy][2] = top_righ_x * 4 - ix * 4
@@ -466,8 +473,7 @@ def image_output_pair(images):
                     y_regr_lable[ix][jy][5] = dow_righ_y * 4 - jy * 4
                     y_regr_lable[ix][jy][6] = dow_left_x * 4 - ix * 4
                     y_regr_lable[ix][jy][7] = dow_left_y * 4 - jy * 4
-        y_regr_label = np.expand_dims(y_regr_lable, axis=0)
-        y_merge_label = np.concatenate((y_regr_label, y_class_label), axis=-1)
+        y_merge_label = np.concatenate((y_regr_lable, y_class_label), axis=-1)
         yield (img, y_class_label, y_merge_label)
 
 
@@ -487,10 +493,8 @@ def group_by_batch(dataset, batch_size):
 def load_dataset(directory, crop_size=320, batch_size=32):
     files = list_pictures(directory, 'jpg')
     generator = image_generator(files, crop_size, scale=1/255.0)
-    for gen in generator:
-        print gen[1]
-    # generator = image_output_pair(generator)
-    # generator = group_by_batch(generator, batch_size)
+    generator = image_output_pair(generator)
+    generator = group_by_batch(generator, batch_size)
     return generator
 
 
@@ -510,19 +514,14 @@ if __name__ == '__main__':
     #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
 
     # use python generator to generate training data
-
-    # train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/train', 320, 8)
-    # for it in train_set:
-    #    print it[0]
-
-    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/val', 320, 8)
+    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/train', 320, 32)
+    # val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/val', 320, 8)
     # get date and time
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
     filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    # model_info = multask_model.fit_generator(train_set, steps_per_epoch=100000, epochs=10000, validation_data=val_set,
-    #                                        callbacks=callbacks_list, validation_steps=1000)
-    # plot_model_history(model_info)
+    model_info = multask_model.fit_generator(train_set, steps_per_epoch=10, epochs=1000,
+                                             callbacks=callbacks_list)
     # plot_model_history(model_info)
