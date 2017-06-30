@@ -2,6 +2,7 @@ import os
 import numpy as np
 import cv2
 import re
+import glob
 from PIL import Image, ImageDraw, ImageFont
 fnt = ImageFont.truetype('/home/yuquanjie/Download/FreeMono.ttf', size=35)
 
@@ -25,6 +26,7 @@ def save_groudtruth(im, coords, filename):
     img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
     # get image name using regular expression
     pattern = re.compile(r'image_\d*_\d*')
+    # pattern = re.compile(r'\d*_\d*')
     search = pattern.search(filename)
     image_name = search.group()
     image_name += '_'
@@ -76,8 +78,10 @@ def get_raw_data(input_path, save_gt=False):
     num_txt = 0
     visual = False
     print('Parsing txt files')
-    txt_directory = os.path.join(input_path, 'text')
-    all_txt_files = [os.path.join(txt_directory, s) for s in os.listdir(txt_directory)]
+    # txt_directory = os.path.join(input_path, 'text')
+    # all_txt_files = [os.path.join(txt_directory, s) for s in os.listdir(txt_directory)]
+    txtfiles = input_path + '/*.txt'
+    all_txt_files = glob.glob(txtfiles)
     box_num = 0
     for txt in all_txt_files:
         with open(txt, 'r') as f:
@@ -91,20 +95,17 @@ def get_raw_data(input_path, save_gt=False):
                 coords.append((x1, y1, x2, y2, x3, y3, x4, y4))
             txtfilepath = txt
             # using regular expression, get image file path
-            pattern = re.compile('text')
-            img_file_path = pattern.sub('image', txt)
+            # pattern = re.compile('text')
+            # img_file_path = pattern.sub('image', txt)
             pattern = re.compile('txt')
-            img_file_path = pattern.sub('jpg', img_file_path)
+            img_file_path = pattern.sub('jpg', txtfilepath)
             txt_data = {'imagePath': img_file_path, 'boxCoord': coords, 'boxNum': box_num}
-
             box_num = 0
             coords = []
-
             # image file wheater corresponding to text file, and image file is not empty then add
             if os.path.isfile(img_file_path) and os.path.isfile(txtfilepath) \
                     and os.path.getsize(img_file_path):
                 all_txts.append(txt_data)
-
             # -----------------------visualizing-----------------------------------------
             # draw text region on image and save image
             # print text region on image for comparing gt and predicted results
@@ -117,8 +118,7 @@ def get_raw_data(input_path, save_gt=False):
                     and os.path.getsize(img_file_path) and visual:
                 visualize(cv2.imread(img_file_path), txt_data['boxCoord'], img_file_path)
             # -----------------------visualizing-----------------------------------------
-
     return all_txts, num_txt
 
 if __name__ == '__main__':
-    get_raw_data('/home/yuquanjie/Documents/cropped_image320/30', True)
+    get_raw_data('/home/yuquanjie/Documents/icdar2017_cropped320', True)
