@@ -26,7 +26,7 @@ import tensorflow as tf
 import datetime
 import matplotlib.pyplot as plt
 
-HUBER_DELTA = 1.0
+
 gpu_id = '0'
 os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
@@ -402,27 +402,9 @@ def image_generator(list_of_files, crop_size=320, scale=1):
                 (x3, y3, x4, y4) = line_split[4:8]
                 text_region.append([string.atof(x1), string.atof(y1), string.atof(x2), string.atof(y2),
                                     string.atof(x3), string.atof(y3), string.atof(x4), string.atof(y4)])
-
         if cropped_image is None or text_region is None or \
                 cropped_image.shape[0] != crop_size or cropped_image.shape[1] != crop_size:
             continue
-
-        # save middle result
-        if False:
-            pattern = re.compile(r'image_\d*')
-            search = pattern.search(jpgname)
-            image_name = search.group()
-            jpgname = '/home/yuquanjie/Documents/visual/' + image_name + '_' + bytes(10) + '.jpg'
-            txtname = '/home/yuquanjie/Documents/visual/' + image_name + '_' + bytes(10) + '.txt'
-            # print 'writing ... {0}'.format(jpgname)
-            cv2.imwrite(jpgname, cropped_image)
-            txtwrite = open(txtname, 'a')
-            for txt in text_region:
-                for it in txt:
-                    txtwrite.write(bytes(it) + ',')
-                txtwrite.write('\n')
-            txtwrite.close()
-        # save middle result
         yield [scale * cropped_image, text_region]
 
 
@@ -515,22 +497,21 @@ if __name__ == '__main__':
     multask_model = Model(img_input, multi[0:2])
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
-    # compile model
-    # multask_model.compile(loss=[my_hinge, smooth_l1], optimizer=sgd)
-    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=['acc'])
-    # resume training
-    # multask_model = load_model('model/2017-06-23-17-14-loss-decrease-1827-0.65.hdf5',
-    #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+    # parallel
 
+    # compile model
+    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=[my_hinge, new_smooth])
+    # resume training
+    multask_model = load_model('model/2017-06-30-17-06-loss-decrease-59-1.79.hdf5',
+                               custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     # use python generator to generate training data
     train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_cropped320', 320, 64)
-    # val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_dataset/val', 320, 8)
-    # get date and time
+    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_test', 320, 32)
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
     filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    model_info = multask_model.fit_generator(train_set, steps_per_epoch=1000, epochs=1000,
-                                             callbacks=callbacks_list)
+    model_info = multask_model.fit_generator(train_set, steps_per_epoch=1000, epochs=10000, callbacks=callbacks_list,
+                                             validation_data=val_set, validation_steps=100, initial_epoch=62)
     # plot_model_history(model_info)
