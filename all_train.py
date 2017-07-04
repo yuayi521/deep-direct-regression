@@ -27,10 +27,6 @@ import datetime
 import matplotlib.pyplot as plt
 
 
-gpu_id = '0'
-os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-
-
 def read_multi_h5file(filelist):
     """
     read multi h5 file
@@ -55,22 +51,6 @@ def read_multi_h5file(filelist):
 
     y_train = [y_1_cls, y_2_mer]
     return x_train, y_train
-
-
-def my_hinge(y_true, y_pred):
-    """ Compute hinge loss for classification
-
-    :param y_true: Ground truth for category,
-                    negative is -1, positive is 1
-                    tensor shape (?, 80, 80, 1)
-    :param y_pred: Predicted category
-                    tensor shape (?, 80, 80, 1)
-    :return: hinge loss, tensor shape (1, )
-    """
-    sub_1 = tf.sign(0.5 - y_true)
-    sub_2 = y_pred - y_true
-    my_hinge_loss = tf.reduce_mean(tf.square(tf.maximum(0.0, sub_1 * sub_2)))
-    return my_hinge_loss
 
 
 """
@@ -110,21 +90,48 @@ def weighted_hinge(y_true, y_pred):
 """
 
 
+def merged_loss(y_true, y_pred):
+    """
+    Loss = Loss_cls + lambda * Loss_reg, lambda is [0.01, 0.5]
+    :param y_true: (?, 80, 80, 9),
+                   (:, :, :, 0:8) is regression ground truth
+                   (:, :, :, 8) is classification ground truth
+    :param y_pred:
+    :return:
+    """
+
+
+def my_hinge(y_true, y_pred):
+    """
+     Compute hinge loss for classification, return averaged batch loss, loss / batch_size
+    :param y_true: Ground truth for category,
+                   negative is -1, positive is 1
+                    tensor shape (?, 80, 80, 1)
+    :param y_pred:
+    :return: hinge loss, tensor shape (1, )
+    """
+    exper_1 = tf.sign(0.5 - y_true)
+    exper_2 = y_pred - y_true
+    # not set axis, reduce all dimensions, add all value / (batch_size * 80 * 80)
+    loss = tf.reduce_mean(tf.square(tf.maximum(0.0, exper_1 * exper_2)))
+    return loss
+
+
 def new_smooth(y_true, y_pred):
     """
-    Compute regression loss, loss / batch_size
+    Compute regression loss
     :param y_true: ground truth of regression and classification
-                    tensor shape (batch_size, 80, 80, 9)
-                    (:, :, :, 0:8) is regression label
-                    (:, :, :, 8) is classification label
-    :param y_pred: predicted value of regression
+                   tensor shape (batch_size, 80, 80, 9)
+                   (:, :, :, 0:8) is regression label
+                   (:, :, :, 8) is classification label
+    :param y_pred:
     :return: every pixel loss, average loss of 8 feature map
              tensor shape(batch_size, 80, 80)
     """
     # expand dimension of y_true, from (batch_size, 80, 80, 9) to (batch_size, 80, 80, 16)
-    sub = tf.expand_dims(y_true[:, :, :, 8], axis=3)
+    sub = tf.expand_dims(y_true[:, :, :, 8], axis=-1)
     for i in xrange(7):
-        y_true = tf.concat([y_true, sub], axis=3)
+        y_true = tf.concat([y_true, sub], axis=-1)
     abs_val = tf.abs(y_true[:, :, :, 0:8] - y_pred)
     smooth = tf.where(tf.greater(1.0, abs_val),
                       0.5 * abs_val ** 2,
@@ -132,12 +139,12 @@ def new_smooth(y_true, y_pred):
     loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
                     smooth,
                     0.0 * smooth)
-    # loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
-    #               y_true[:, :, :, 8:16],
-    #               0 * y_true[:, :, :, 8:16]) * smooth
     loss = tf.reduce_mean(loss, axis=-1)
+    # I think reducing all dimension maybe right
+    # loss = tf.reduce_mean(loss)
     # loss_batch = loss / tf.to_float(tf.shape(y_true)[0])
-    return loss
+    lambda_loc = 0.01
+    return lambda_loc * loss
 
 
 def smooth_l1(y_true, y_pred):
@@ -245,6 +252,8 @@ def multi_task(input_tensor):
     x = Convolution2D(8, (1, 1), strides=(1, 1), padding='same', activation='sigmoid')(x)
     x_regr = Lambda(lambda t: 800 * t - 400)(x)
     return [x_clas, x_regr, x]
+    # merged = np.concatenate((x_regr, x_clas), axis=-1)
+    # return merged
 
 
 def plot_model_history(model_history):
@@ -490,17 +499,20 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 
 if __name__ == '__main__':
+    gpu_id = '3'
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
     # define network
     multi = multi_task(img_input)
     multask_model = Model(img_input, multi[0:2])
+    # multask_model = Model(img_input, multi)
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
-    # parallel
-
+    # parallel, use 4 GPU(TODO)
     # compile model
-    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=[my_hinge, new_smooth])
+    # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=[my_hinge, new_smooth])
+    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # resume training
     multask_model = load_model('model/2017-06-30-17-06-loss-decrease-59-1.79.hdf5',
                                custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
@@ -512,7 +524,6 @@ if __name__ == '__main__':
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    model_info = multask_model.fit_generator(train_set, steps_per_epoch=1000, epochs=10000, callbacks=callbacks_list,
-                                             validation_data=val_set, validation_steps=100, initial_epoch=62)
-    # plot_model_history(model_info)
+    model_info = multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
+                                             validation_data=val_set, validation_steps=10, initial_epoch=62)
     # plot_model_history(model_info)
