@@ -69,9 +69,9 @@ def capture_image_random(imgs, out_dir, size=320, cropped_num=300):
     randomly choose a point as cropped image's top left coordinate, then each aixs add 320 pixel to generate
     down right coordinate, then get a 320 * 320 cropped image
     :param imgs: a list, each elements is a dictionary, including image's txt file path, and text region coordinates
+    :param  out_dir: the directroy to story cropped image
     :param size: cropped iamge size
     :param cropped_num: the number of circulation to randomly crop iamge
-    :param  out_dir: the directroy to story cropped image
     :return: no returning, just writing jpg and txt fix in out_dir
     """
     for img in imgs:
@@ -189,17 +189,11 @@ def resize_image_from_textcenter(imgs, size=320):
                     writ_crop_img = True
 
                     for polygon in img['boxCoord']:
-                        x1 = string.atof(polygon[0])
-                        x2 = string.atof(polygon[2])
-                        x3 = string.atof(polygon[4])
-                        x4 = string.atof(polygon[6])
-
-                        y1 = string.atof(polygon[1])
-                        y2 = string.atof(polygon[3])
-                        y3 = string.atof(polygon[5])
-                        y4 = string.atof(polygon[7])
+                        x1, y1 = string.atof(polygon[0]), string.atof(polygon[1])
+                        x2, y2 = string.atof(polygon[2]), string.atof(polygon[3])
+                        x3, y3 = string.atof(polygon[4]), string.atof(polygon[5])
+                        x4, y4 = string.atof(polygon[6]), string.atof(polygon[7])
                         raw_img_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
-
                         if raw_img_poly.intersects(crop_img):
                             txtname = '/home/yuquanjie/Documents/deep-direct-regression/resized_' + bytes(size) + '/' \
                                       + image_name + '_' + bytes(idx) + '_' + pos + '.txt'
@@ -253,8 +247,9 @@ def resize_image_from_textcenter(imgs, size=320):
 
 
 if __name__ == '__main__':
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/shumei_train/shum')
-    # resize_image_from_textcenter(all_imgs, 320)
+    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/shumei_train/shum')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_dataset')
+    resize_image_from_textcenter(all_imgs, 320)
     # capture_image_random(all_imgs, '/home/yuquanjie/Documents/shumei_crop', 320, 2200 / 2)
-    capture_image_random(all_imgs, '/home/yuquanjie/Documents/shumei_crop', 320, 2200 / 10)
+    # capture_image_random(all_imgs, '/home/yuquanjie/Documents/shumei_crop', 320, 2200 / 10)
 
