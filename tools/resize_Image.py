@@ -41,10 +41,8 @@ def intersect_cropped_rawtxtreg(crop_img, rawtext_coord, tl_x, tl_y):
             # 1) not equal to 0
             # 2) greater than 0.00001%  1 / (320 * 320)
             # 3) smaller than 71% 72900 / (320 * 320)
-            print '---inter.area is {0}:'.format(inter.area)
             if inter.area == 0 or inter.area < 1 or inter.area > 72900:
                 writ_crop_img = False
-                # print '((((((((((((((((hello'
                 break
             list_inter = list(inter.exterior.coords)
             x1, y1 = list_inter[0][0] - tl_x, list_inter[0][1] - tl_y
@@ -52,21 +50,16 @@ def intersect_cropped_rawtxtreg(crop_img, rawtext_coord, tl_x, tl_y):
             x3, y3 = list_inter[2][0] - tl_x, list_inter[2][1] - tl_y
             x4, y4 = list_inter[1][0] - tl_x, list_inter[1][1] - tl_y
             # insure the t_ft coordinates is on the top-left position
-            print x1, y1, x2, y2, x3, y3, x4, y4
             if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
                 writ_crop_img = True
-                print '^^^^^^^^^^^^^^^^^^^hello'
             else:
                 writ_crop_img = False
-                print '********************hello'
                 break
             # insure the intersected poly is quardrangle
             if len(list_inter) != 5:
                 writ_crop_img = False
                 break
             strcoord = '{0},{1},{2},{3},{4},{5},{6},{7},\n'.format(x1, y1, x2, y2, x3, y3, x4, y4)
-            print 'strocoord : {0}'.format(strcoord)
-            print 'return value is {0}'.format(writ_crop_img)
             intersec_coord.append(strcoord)
         # else:
         #     writ_crop_img = False
@@ -173,10 +166,7 @@ def resize_image_from_textcenter(imgs, outdir, size=320):
     :param size: resized size
     :return: no returning value, write image(320 * 320) and corresponding txt file on disk
     """
-    # for img in imgs:
-    tmp = []
-    tmp.append(imgs[0])
-    for img in tmp:
+    for img in imgs:
         idx = 1
         im = cv2.imread(img['imagePath'])
         print img['imagePath']
@@ -188,7 +178,6 @@ def resize_image_from_textcenter(imgs, outdir, size=320):
                         (string.atof(coord[1]) + string.atof(coord[5])) / 2]
             # get cropped image's top-left and down-right coordinate
             [t_f, d_r] = get_croppedimg_tf_dr_coord_onecase(im, text_cen, size)
-            # print 'cropped image t_f is : {0}'.format(t_f)
             if t_f is None or d_r is None:
                 continue
             # calculate cropped image's top-right and down-left coordinates
@@ -200,19 +189,14 @@ def resize_image_from_textcenter(imgs, outdir, size=320):
             jpgname = outdir + '/' + base_name + '_' + bytes(idx) + '.jpg'
             txtname = outdir + '/' + base_name + '_' + bytes(idx) + '.txt'
             # use function to judge polygon crop_img whether intersect with raw image text regions
-            print '--------'
             write_b, inter_co = intersect_cropped_rawtxtreg(crop_img, img['boxCoord'], t_f[0], t_f[1])
-            print '--------'
             if write_b:
-                print '+++write_b is {0}:'.format(write_b)
                 txtwrite = open(txtname, 'a')
                 for co in inter_co:
                     txtwrite.write(co)
                 txtwrite.close()
-                print 'writing ...{0}'.format(jpgname)
                 cv2.imwrite(jpgname, im[int(t_f[1]): int(t_f[1]) + size, int(t_f[0]): int(t_f[0]) + size])
                 idx += 1
-            print '========='
 
 
 if __name__ == '__main__':
