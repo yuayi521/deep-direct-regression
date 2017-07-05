@@ -291,15 +291,6 @@ def get_train_data(all_img):
                 continue
 
 
-def objective_measure(y_true, y_pred):
-    """
-    objective measure of classification
-    :param y_true: ground truth of classification
-    :param y_pred: predicted results of classification
-    :return:
-    """
-
-
 if __name__ == '__main__':
     # define Input
     img_input = Input((320, 320, 3))
@@ -312,30 +303,17 @@ if __name__ == '__main__':
     # compile model
     # multask_model.compile(loss=[my_hinge, smoothL1], optimizer=sgd)
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
-    # read test data from h5 file
-    """
-    file = h5py.File('dataset/train_dataset-1500.h5', 'r')
-    X = file['X_train'][:]
-    Y_cls = file['Y_train_cls'][:]
-    file.close()
-    """
     # train data, test model using train data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/shumei_crop')
-    # test data , test model using test data
-    # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part6')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_test')
     data_gen_train = get_train_data(all_imgs)
     while True:
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
         # load model
-        # negative label is -1
-        # 1000 * 1000
-        # final_model = load_model('model/2017-06-22-17-28-loss-decrease-868-0.48.hdf5',
-        #                          custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
-        final_model = load_model('model/2017-06-26-16-24-loss-decrease-82-1.20.hdf5',
+        final_model = load_model('model/2017-07-04-14-30-loss-decrease-92-0.19.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
-        predict_all = final_model.predict_on_batch(X)
+        predict_all = final_model.predict_on_batch(1/255.0 * X)
         # 1) classification result
         predict_cls = predict_all[0]
         # reduce first and last dimension
