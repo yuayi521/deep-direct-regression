@@ -53,17 +53,6 @@ def read_multi_h5file(filelist):
     return x_train, y_train
 
 
-def merged_loss(y_true, y_pred):
-    """
-    Loss = Loss_cls + lambda * Loss_reg, lambda is [0.01, 0.5]
-    :param y_true: (?, 80, 80, 9),
-                   (:, :, :, 0:8) is regression ground truth
-                   (:, :, :, 8) is classification ground truth
-    :param y_pred:
-    :return:
-    """
-
-
 def my_hinge(y_true, y_pred):
     """
      Compute hinge loss for classification, return averaged batch loss, loss / batch_size
