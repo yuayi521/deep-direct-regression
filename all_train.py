@@ -53,43 +53,6 @@ def read_multi_h5file(filelist):
     return x_train, y_train
 
 
-"""
-def weighted_hinge(y_true, y_pred):
-    Compute weighted hinge loss for classification
-
-    :param y_true: Ground truth for category,
-                    negative is -1, positive is 1
-                    tensor shape (?, 80, 80, 1)
-    :param y_pred: Predicted category
-                    tensor shape (?, 80, 80, 1)
-    :return: hinge loss, tensor shape (1, )
-
-    reduce_dim_y_true = tf.reduce_sum(y_true, axis=-1)
-    reduce_dim_y_pred = tf.reduce_sum(y_pred, axis=-1)
-
-    zero = tf.constant(0, dtype=tf.int32)
-    where_not_zero = tf.not_equal(reduce_dim_y_true, zero)
-    where_zero = tf.equal(reduce_dim_y_true, zero)
-
-    # indices_pos, tensor shape(batch_size, 80, 80), indicating positive indices
-    indices_pos = tf.where(where_not_zero)
-    # indices_pos, tensor shape(batch_size, 80, 80), indicating negative indices
-    indices_neg = tf.where(where_zero)
-
-    num_pos = tf.to_float(tf.shape(indices_pos)[0])
-    num_neg = tf.to_float(tf.shape(indices_neg)[0])
-
-    factor = num_pos / num_neg
-    pos_ratio = 1 - factor
-    neg_ratio = 1 - pos_ratio
-
-    loss_pos =
-    loss_neg =
-    weighted_hinge_loss = pos_ratio * loss_pos + neg_ratio * loss_neg
-    return weighted_hinge_loss
-"""
-
-
 def merged_loss(y_true, y_pred):
     """
     Loss = Loss_cls + lambda * Loss_reg, lambda is [0.01, 0.5]
@@ -499,7 +462,7 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 
 if __name__ == '__main__':
-    gpu_id = '3'
+    gpu_id = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
@@ -514,16 +477,16 @@ if __name__ == '__main__':
     # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=[my_hinge, new_smooth])
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # resume training
-    multask_model = load_model('model/2017-06-30-17-06-loss-decrease-59-1.79.hdf5',
+    multask_model = load_model('model/2017-07-03-16-25-loss-decrease-78-1.64.hdf5',
                                custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     # use python generator to generate training data
     train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_cropped320', 320, 64)
-    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_test', 320, 32)
+    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_test', 320, 64)
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
     filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    model_info = multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
-                                             validation_data=val_set, validation_steps=10, initial_epoch=62)
+    model_info = multask_model.fit_generator(train_set, steps_per_epoch=1000, epochs=10000, callbacks=callbacks_list,
+                                             validation_data=val_set, validation_steps=10, initial_epoch=80)
     # plot_model_history(model_info)
