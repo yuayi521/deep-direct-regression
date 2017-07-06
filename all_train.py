@@ -146,32 +146,6 @@ def new_smooth(y_true, y_pred):
     return lambda_loc * loss
 
 
-def smooth_l1(y_true, y_pred):
-    """
-    Compute regresstion loss, loss didn't not divide batch_size
-    :param y_true:
-    :param y_pred:
-    :return:
-    """
-    sub = tf.expand_dims(y_true[:, :, :, 8], axis=3)
-    for i in xrange(7):
-        y_true = tf.concat([y_true, sub], axis=3)
-    abs_val = tf.abs(y_true[:, :, :, 0:8] - y_pred)
-    smooth = tf.where(tf.greater(1.0, abs_val),
-                      0.5 * abs_val ** 2,
-                      abs_val - 0.5)
-    if False:
-        loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
-                        y_true[:, :, :, 8:16],
-                        0 * y_true[:, :, :, 8:16]) * smooth
-    else:
-        loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
-                        y_true[:, :, :, 8:16],
-                        0 * y_true[:, :, :, 8:16]) * smooth
-    loss = tf.reduce_mean(loss, axis=-1)
-    return loss
-
-
 def multi_task(input_tensor):
     im_input = BatchNormalization()(input_tensor)
 
@@ -311,78 +285,6 @@ def read_txts(txtpath):
             (x3, y3, x4, y4) = line_split[4:8]
             coords.append((x1, y1, x2, y2, x3, y3, x4, y4))
     return coords
-
-
-def random_crop(image, txts, crop_size=320):
-    """
-
-    :param image:
-    :param txts:
-    :param crop_size:
-    :return:
-    """
-    ret_cropped_img = True
-    height = image.shape[1]
-    width = image.shape[0]
-    strcoord_list = []
-    x, y = 0, 0
-    if width < crop_size or height < crop_size:
-        return None, None
-    # once find a cropped image which has intersections with raw image's text region, then jump out, and return cropped
-    # image and its text region coordinates
-    for idx in xrange(2000):
-        strcoord_list = []
-        x = rd.randint(0, width - crop_size)
-        y = rd.randint(0, height - crop_size)
-        cropped_img_poly = Polygon([(x, y), (x, y + crop_size),
-                                    (x + crop_size, y + crop_size), (x + crop_size, y)])
-        for txt in txts:
-            x1, x2 = string.atof(txt[0]), string.atof(txt[2])
-            x3, x4 = string.atof(txt[4]), string.atof(txt[6])
-            y1, y2 = string.atof(txt[1]), string.atof(txt[3])
-            y3, y4 = string.atof(txt[5]), string.atof(txt[7])
-            rawimg_txt_poly = Polygon([(x1, y1), (x4, y4), (x3, y3), (x2, y2)])
-            if rawimg_txt_poly.intersects(cropped_img_poly):
-                inter = rawimg_txt_poly.intersection(cropped_img_poly)
-                # insure the intersected quardrangle's aera is greater than 0
-                if inter.area == 0:
-                    ret_cropped_img = False
-                    break
-                # insure the text region's percentage should  greater than 10%
-                if inter.area < (crop_size / 10) * (crop_size / 10):
-                    ret_cropped_img = False
-                    break
-                # insure the text region's percentage should not greater than 88%
-                if inter.area > (crop_size - 20) * (crop_size - 20):
-                    ret_cropped_img = False
-                    break
-                list_inter = list(inter.exterior.coords)
-                x1, y1 = list_inter[0][0] - x, list_inter[0][1] - y
-                x2, y2 = list_inter[3][0] - x, list_inter[3][1] - y
-                x3, y3 = list_inter[2][0] - x, list_inter[2][1] - y
-                x4, y4 = list_inter[1][0] - x, list_inter[1][1] - y
-                # insure the top_left coordinates is on the top-left position
-                if x1 < x2 and y1 < y4 and x3 > x4 and y3 > y2:
-                    ret_cropped_img = True
-                else:
-                    ret_cropped_img = False
-                    break
-                    # insure the intersected poly is quardrangle
-                if len(list_inter) != 5:
-                    ret_cropped_img = False
-                    break
-                strcoord_list.append([x1, y1, x2, y2, x3, y3, x4, y4])
-            else:
-                ret_cropped_img = False
-                break
-        if ret_cropped_img:
-            break
-    # ret_cropped_img is True, represent cropped iamge correctly, and the cropped image has
-    # text region, the percentage range form 10 % to 88%
-    if ret_cropped_img:
-        return image[y:(y + crop_size), x:(x + crop_size), :], strcoord_list
-    else:
-        return None, None
 
 
 def image_generator(list_of_files, crop_size=320, scale=1):
