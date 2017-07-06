@@ -197,35 +197,6 @@ def get_train_data(all_img):
                                 # else:
                                 #    y_class_lable[ix][jy] = 0
 
-                if visulise:
-                    if img_data['imagePath'] == '/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/' \
-                                                'part1/image/image_0.jpg':
-                        img = cv2.imread(img_data['imagePath'])
-                        img_80 = cv2.resize(img, (80, 80), interpolation=cv2.INTER_CUBIC)
-                        img_draw = Image.fromarray(cv2.cvtColor(img_80, cv2.COLOR_BGR2RGB))
-                        draw = ImageDraw.Draw(img_draw)
-                        for coord in img_data['boxCoord']:
-                            print 'detail'
-                            print float(coord[0]) / divi_x, float(coord[1]) / divi_y
-                            print float(coord[2]) / divi_x, float(coord[3]) / divi_y
-                            print float(coord[4]) / divi_x, float(coord[5]) / divi_y
-                            print float(coord[6]) / divi_x, float(coord[7]) / divi_y
-                            print 'detail'
-                            draw.polygon([(float(coord[0]) / divi_x, float(coord[1]) / divi_y),
-                                          (float(coord[2]) / divi_x, float(coord[3]) / divi_y),
-                                          (float(coord[4]) / divi_x, float(coord[5]) / divi_y),
-                                          (float(coord[6]) / divi_x, float(coord[7]) / divi_y)],
-                                         outline="red", fill="blue")
-                        img_draw = np.array(img_draw)
-                        img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
-                        one_locs = np.where(y_class_lable > 0)
-                        print one_locs
-                        print len(one_locs[0])
-                        print img_data['imagePath']
-                        print img_data['boxNum']
-                        cv2.imshow('img', img_draw)
-                        cv2.waitKey(0)
-
                 img_320 = np.expand_dims(img_320, axis=0)
                 y_class_lable = np.expand_dims(y_class_lable, axis=0)
                 y_class_lable = np.expand_dims(y_class_lable, axis=3)
@@ -275,11 +246,6 @@ def get_train_data(all_img):
                             y_regr_lable[ix][jy][5] = righ_dow_y * 4 - jy * 4
                             y_regr_lable[ix][jy][6] = left_dow_x * 4 - ix * 4
                             y_regr_lable[ix][jy][7] = left_dow_y * 4 - jy * 4
-                if visulise and img_data['imagePath'] == '/home/yuquanjie/Documents/icdar2017rctw_train_v1.2' \
-                                                         '/train/part1/image/image_100.jpg':
-                    print y_regr_lable[59][75]
-                    print y_regr_lable[59][76]
-                    print y_regr_lable[59][77]
                 y_regr_lable = np.expand_dims(y_regr_lable, axis=0)
                 # img is raw image, size is 2400 * 3200
                 yield np.copy(img_320), np.copy(y_class_lable), np.copy(y_regr_lable), np.copy(img), img_data
