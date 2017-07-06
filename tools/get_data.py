@@ -1,4 +1,5 @@
 import os
+import string
 import numpy as np
 import cv2
 import re
@@ -27,6 +28,51 @@ def save_groudtruth(im, coords, filename):
     bname_excludepoint = filename.split('/')[-1].split('.')[0]
     image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + bname_excludepoint + '_gt.jpg'
     cv2.imwrite(image_path, img_draw[0: img_draw.shape[0], 0: img_draw.shape[1]])
+
+
+def get_zone(text_reg):
+    """
+    split text region to get positive zone and gray zone(not care region)
+    should judge quardrange's short side
+    :param text_reg:
+    :return: A tuple (gray_zone, posi_zone)
+    """
+    posi_zone = []
+    gray_zone = []
+    for txt in text_reg:
+        x1, y1, x2, y2 = txt[0], txt[1], txt[2], txt[3]
+        x3, y3, x4, y4 = txt[4], txt[5], txt[6], txt[7]
+        line_1_2_len = np.sqrt(np.square(x1 - x2) + np.square(y1 - y2))
+        line_1_4_len = np.sqrt(np.square(x1 - x4) + np.square(y1 - y4))
+        if line_1_2_len <= line_1_4_len:
+            # short side is line_1_2
+            mid_point_1_2 = [(x1 + x2) / 2, (y1 + y2) / 2]
+            mid_point_m_1 = [(x1 + mid_point_1_2[0]) / 2, (y1 + mid_point_1_2[1]) / 2]
+            mid_point_m_2 = [(x2 + mid_point_1_2[0]) / 2, (y2 + mid_point_1_2[1]) / 2]
+
+            mid_point_3_4 = [(x3 + x4) / 2, (y3 + y4) / 2]
+            mid_point_m_3 = [(x3 + mid_point_3_4[0]) / 2, (y3 + mid_point_3_4[1]) / 2]
+            mid_point_m_4 = [(x4 + mid_point_3_4[0]) / 2, (y4 + mid_point_3_4[1]) / 2]
+
+            gray_zone.append([x1, y1, mid_point_m_1[0], mid_point_m_1[1], mid_point_m_4[0], mid_point_m_4[1], x4, y4])
+            gray_zone.append([mid_point_m_2[0], mid_point_m_2[1], x2, y2, x3, y3, mid_point_m_3[0], mid_point_m_3[1]])
+            posi_zone.append([mid_point_m_1[0], mid_point_m_1[1], mid_point_m_2[0], mid_point_m_2[1],
+                              mid_point_m_3[0], mid_point_m_3[1], mid_point_m_4[0], mid_point_m_4[1]])
+        else:
+            # short side is line_1_4
+            mid_point_1_4 = [(x1 + x4) / 2, (y1 + y4) / 2]
+            mid_point_m_1 = [(x1 + mid_point_1_4[0]) / 2, (y1 + mid_point_1_4[1]) / 2]
+            mid_point_m_4 = [(x4 + mid_point_1_4[0]) / 2, (y4 + mid_point_1_4[1]) / 2]
+
+            mid_point_2_3 = [(x2 + x3) / 2, (y2 + y3) / 2]
+            mid_point_m_2 = [(x2 + mid_point_2_3[0]) / 2, (y2 + mid_point_2_3[1]) / 2]
+            mid_point_m_3 = [(x3 + mid_point_2_3[0]) / 2, (y3 + mid_point_2_3[1]) / 2]
+            gray_zone.append([x1, y1, x2, y2, mid_point_m_2[0], mid_point_m_2[1], mid_point_m_1[0], mid_point_m_1[1]])
+            gray_zone.append([mid_point_m_4[0], mid_point_m_4[1], mid_point_m_3[0], mid_point_m_3[1], x3, y3, x4, y4])
+            posi_zone.append([mid_point_m_1[0], mid_point_m_1[1], mid_point_m_2[0], mid_point_m_2[1],
+                              mid_point_m_3[0], mid_point_m_3[1], mid_point_m_4[0], mid_point_m_4[1]])
+
+    return gray_zone, posi_zone
 
 
 def visualize(im, coords, filename):
@@ -111,8 +157,55 @@ def get_raw_data(input_path, save_gt=False):
             if os.path.isfile(img_file_path) and os.path.isfile(txtfilepath) \
                     and os.path.getsize(img_file_path) and visual:
                 visualize(cv2.imread(img_file_path), txt_data['boxCoord'], img_file_path)
-            # -----------------------visualizing-----------------------------------------
+                # -----------------------visualizing-----------------------------------------
     return all_txts, num_txt
 
+
 if __name__ == '__main__':
-    get_raw_data('/home/yuquanjie/Documents/shumei_crop', True)
+    get_raw_data('/home/yuquanjie/Documents/icdar2017_crop_center', True)
+
+    test_get_zone_function = False
+    if test_get_zone_function:
+        txts = glob.glob('/home/yuquanjie/Documents/icdar2017_crop_center/*.txt')
+        for txtname in txts:
+            text_region = []
+            print txtname
+            # jpgname = '/home/yuquanjie/Documents/icdar2017_crop_center/image_11_2.jpg'
+            jpgname = '/home/yuquanjie/Documents/icdar2017_crop_center/' + txtname.split('/')[-1].split('.')[0] + '.jpg'
+            print jpgname
+            with open(txtname, 'r') as f:
+                for line in f:
+                    line_split = line.strip().split(',')
+                    (x_1, y_1, x_2, y_2) = line_split[0:4]
+                    (x_3, y_3, x_4, y_4) = line_split[4:8]
+                    text_region.append([string.atof(x_1), string.atof(y_1), string.atof(x_2), string.atof(y_2),
+                                        string.atof(x_3), string.atof(y_3), string.atof(x_4), string.atof(y_4)])
+            gray_z, pos_zone = get_zone(text_region)
+            img = cv2.imread(jpgname)
+            #
+            cv2.imshow('img', img)
+            cv2.waitKey(0)
+            # raw text region
+            for reg in text_region:
+                counters = np.array([[int(reg[0]), int(reg[1])], [int(reg[2]), int(reg[3])],
+                                     [int(reg[4]), int(reg[5])], [int(reg[6]), int(reg[7])]])
+                cv2.fillPoly(img, pts=[counters], color=(0, 0, 255))
+                # cv2.fillPoly(img, pts=[counters], color=(255, 0, 0))
+            cv2.imshow('img', img)
+            cv2.waitKey(0)
+            # gray_zone
+            for reg in gray_z:
+                counters = np.array([[int(reg[0]), int(reg[1])], [int(reg[6]), int(reg[7])],
+                                     [int(reg[4]), int(reg[5])], [int(reg[2]), int(reg[3])]])
+                cv2.fillPoly(img, pts=[counters], color=(255, 0, 0))
+            # cv2.imshow('img', img)
+            # cv2.waitKey(0)
+            # positive zone
+            for reg in pos_zone:
+                counters = np.array([[int(reg[0]), int(reg[1])], [int(reg[6]), int(reg[7])],
+                                     [int(reg[4]), int(reg[5])], [int(reg[2]), int(reg[3])]])
+                cv2.fillPoly(img, pts=[counters], color=(0, 0, 0))
+            cv2.imshow('img', img)
+            cv2.waitKey(0)
+
+
