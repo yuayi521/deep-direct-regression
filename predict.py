@@ -21,10 +21,6 @@ import tools.get_data as get_data
 import tools.point_check as point_check
 import re
 
-HUBER_DELTA = 1.0
-gpu_id = '3'
-os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-
 
 def my_hinge(y_true, y_pred):
     """ Compute hinge loss for classification
@@ -292,6 +288,8 @@ def get_train_data(all_img):
 
 
 if __name__ == '__main__':
+    gpu_id = '3'
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
     # define network
@@ -305,12 +303,12 @@ if __name__ == '__main__':
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # train data, test model using train data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_test')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_crop_center')
     data_gen_train = get_train_data(all_imgs)
     while True:
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
         # load model
-        final_model = load_model('model/2017-07-04-14-30-loss-decrease-92-0.19.hdf5',
+        final_model = load_model('model/2017-07-06-16-01-loss-decrease-101-0.17.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(1/255.0 * X)
@@ -321,6 +319,8 @@ if __name__ == '__main__':
         predict_cls = np.sum(predict_cls, axis=0)
         # one_locs type is tuple, negative lable is -1
         one_locs = np.where(predict_cls > 0)
+        # one_locs type is tuple, negative lable is 0
+        one_locs = np.where(predict_cls > 0.7)
         # coord type is list
         # firstly, each pixel of 80 * 80 feature map multiply 4, get pixel classification on 320 * 320
         coord = [one_locs[0] * 4, one_locs[1] * 4]
