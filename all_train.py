@@ -67,6 +67,27 @@ def read_multi_h5file(filelist):
     return x_train, y_train
 
 
+def l2(y_true, y_pred):
+    """
+
+    :param y_true:
+    :param y_pred:
+    :return:
+    """
+    # extract mask label
+    mask_label = tf.expand_dims(y_true[:, :, :, 1], axis=-1)
+    # count the number of 1 in mask_label tensor, the number of contributed pixels
+    num_contributed_pixel = tf_count(mask_label, 1)
+    # int32 to flot 32
+    num_contributed_pixel = tf.cast(num_contributed_pixel, tf.float32)
+
+    clas_label = tf.expand_dims(y_true[:, :, :, 0], axis=-1)
+    loss = tf.reduce_sum(tf.square(clas_label - y_pred)) / num_contributed_pixel
+
+    # loss = loss / tf.to_float(tf.shape(y_true)[0])
+    return loss
+
+
 def my_hinge(y_true, y_pred):
     """
     Compute hinge loss for classification, return batch loss, not divide batch_size
@@ -414,7 +435,7 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 
 if __name__ == '__main__':
-    gpu_id = '3'
+    gpu_id = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
@@ -440,5 +461,5 @@ if __name__ == '__main__':
     callbacks_list = [checkpoint]
     # fit model
     model_info = multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
-                                             validation_data=val_set, validation_steps=10, initial_epoch=101)
+                                             validation_data=val_set, validation_steps=10, initial_epoch=0)
     # plot_model_history(model_info)
