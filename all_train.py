@@ -14,6 +14,7 @@ from keras.layers import Input
 from keras.models import Model, load_model
 from shapely.geometry import Polygon
 from keras.preprocessing.image import list_pictures
+from tools.get_data import get_zone
 import tools.point_check as point_check
 import cv2
 import string
@@ -25,6 +26,19 @@ import h5py
 import tensorflow as tf
 import datetime
 import matplotlib.pyplot as plt
+
+
+def tf_count(t, val):
+    """
+    https://stackoverflow.com/questions/36530944/how-to-get-the-count-of-an-element-in-a-tensor
+    :param t:
+    :param val:
+    :return:
+    """
+    elements_equal_to_value = tf.equal(t, val)
+    as_ints = tf.cast(elements_equal_to_value, tf.int32)
+    count = tf.reduce_sum(as_ints)
+    return count
 
 
 def read_multi_h5file(filelist):
@@ -55,17 +69,37 @@ def read_multi_h5file(filelist):
 
 def my_hinge(y_true, y_pred):
     """
-     Compute hinge loss for classification, return averaged batch loss, loss / batch_size
+    Compute hinge loss for classification, return batch loss, not divide batch_size
     :param y_true: Ground truth for category,
-                   negative is -1, positive is 1
-                    tensor shape (?, 80, 80, 1)
+                   negative is 0, positive is 1
+                   tensor shape (?, 80, 80, 2)
+                   (?, 80, 80, 0): classification label
+                   (?, 80, 80, 1): mask label,
+                                   0 represent margin between pisitive and negative region, not contribute to
+                                   loss function
+                                   1 represent positive and negative region
     :param y_pred:
-    :return: hinge loss, tensor shape (1, )
+    :return: tensor shape (1, ), batch total loss / contirbuted pixels
     """
-    exper_1 = tf.sign(0.5 - y_true)
-    exper_2 = y_pred - y_true
+    # extract mask label
+    mask_label = tf.expand_dims(y_true[:, :, :, 1], axis=-1)
+    # count the number of 1 in mask_label tensor, the number of contributed pixels
+    num_contributed_pixel = tf_count(mask_label, 1)
+    # int32 to flot 32
+    num_contributed_pixel = tf.cast(num_contributed_pixel, tf.float32)
+
+    clas_label = tf.expand_dims(y_true[:, :, :, 0], axis=-1)
+    exper_1 = tf.sign(0.5 - clas_label)
+    exper_2 = y_pred - clas_label
+    loss_mask = tf.multiply(mask_label, tf.square(tf.maximum(0.0, exper_1 * exper_2)))
+
+    # sum over all axis, and reduce all dimensions
+    loss = tf.reduce_sum(loss_mask) / num_contributed_pixel
+    # divide batch_size
+    # loss = loss / tf.to_float(tf.shape(y_true)[0])
+
     # not set axis, reduce all dimensions, add all value / (batch_size * 80 * 80)
-    loss = tf.reduce_mean(tf.square(tf.maximum(0.0, exper_1 * exper_2)))
+    # loss = tf.reduce_mean(tf.square(tf.maximum(0.0, exper_1 * exper_2)))
     return loss
 
 
@@ -73,17 +107,26 @@ def new_smooth(y_true, y_pred):
     """
     Compute regression loss
     :param y_true: ground truth of regression and classification
-                   tensor shape (batch_size, 80, 80, 9)
+                   tensor shape (batch_size, 80, 80, 10)
                    (:, :, :, 0:8) is regression label
                    (:, :, :, 8) is classification label
+                   (:, :, :, 9) is mask label
     :param y_pred:
     :return: every pixel loss, average loss of 8 feature map
              tensor shape(batch_size, 80, 80)
     """
+    # extract classification label and mask label
+    cls_label = tf.expand_dims(y_true[:, :, :, 8], axis=-1)
+    mask_label = tf.expand_dims(y_true[:, :, :, 9], axis=-1)
+    num_contibuted_pixel = tf.cast(tf_count(mask_label, 1), tf.float32)
+    expanded_mask_label = tf.expand_dims(y_true[:, :, :, 9], axis=-1)
     # expand dimension of y_true, from (batch_size, 80, 80, 9) to (batch_size, 80, 80, 16)
-    sub = tf.expand_dims(y_true[:, :, :, 8], axis=-1)
     for i in xrange(7):
-        y_true = tf.concat([y_true, sub], axis=-1)
+        y_true = tf.concat([y_true, cls_label], axis=-1)
+    # expand dimension of mask label to make it equal to y_pred
+    for i in xrange(7):
+        expanded_mask_label = tf.concat([expanded_mask_label, mask_label], axis=-1)
+
     abs_val = tf.abs(y_true[:, :, :, 0:8] - y_pred)
     smooth = tf.where(tf.greater(1.0, abs_val),
                       0.5 * abs_val ** 2,
@@ -91,11 +134,15 @@ def new_smooth(y_true, y_pred):
     loss = tf.where(tf.greater(y_true[:, :, :, 8:16], 0),
                     smooth,
                     0.0 * smooth)
+    loss = tf.multiply(loss, expanded_mask_label)
+    # firstly, for a  pixel (x_i, y_i), summing 8 channel's loss, then calculating average loss
     loss = tf.reduce_mean(loss, axis=-1)
-    # I think reducing all dimension maybe right
-    # loss = tf.reduce_mean(loss)
-    # loss_batch = loss / tf.to_float(tf.shape(y_true)[0])
-    lambda_loc = 0.01
+    # secondly, sum all dimension loss, then divied number of contributed pixel
+    loss = tf.reduce_sum(loss) / num_contibuted_pixel
+    # thirdly, divide batch_size
+    # loss = loss / tf.to_float(tf.shape(y_true)[0])
+    # lambda_loc = 0.01
+    lambda_loc = 1
     return lambda_loc * loss
 
 
@@ -340,11 +387,11 @@ def random_crop(image, txts, crop_size=320):
 
 def image_generator(list_of_files, crop_size=320, scale=1):
     """
-    this is a python generator, return array format image
+    a python generator, read image's text region from txt file
     :param list_of_files: list, storing all jpg file path
     :param crop_size: cropped image size
     :param scale: normalization parameters
-    :return: return array format image
+    :return: A list [numpy array, text region list]
     """
     while True:
         text_region = []
@@ -377,25 +424,38 @@ def image_output_pair(images):
     """
     for img, txtreg in images:
         # 1) generate imput data, input data is (320, 320, 3)
+
         # 2) generate clsssification data
+        # split text region into gray_zone and posi_zone
+        gray_zone, posi_zone = get_zone(txtreg)
         # x-axis and y-axis reduced scale
-        reduced_x = float(img.shape[1]) / 80.0
-        reduced_y = float(img.shape[0]) / 80.0
-        y_class_label = -1 * np.ones((80, 80))  # negative lable is -1
+        reduced_x, reduced_y = float(img.shape[1]) / 80.0, float(img.shape[0]) / 80.0
+        mask_label = np.ones((80, 80))
+        # y_class_label = -1 * np.ones((80, 80))  # negative lable is -1
+        y_class_label = np.zeros((80, 80))  # negative lable is 0
         for ix in xrange(y_class_label.shape[0]):
             for jy in xrange(y_class_label.shape[1]):
-                for polygon in txtreg:
-                    x1, x2 = polygon[0] / reduced_x, polygon[2] / reduced_x
-                    x3, x4 = polygon[4] / reduced_x, polygon[6] / reduced_x
-                    y1, y2 = polygon[1] / reduced_y, polygon[3] / reduced_y
-                    y3, y4 = polygon[5] / reduced_y, polygon[7] / reduced_y
-                    polygon = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
-                    if point_check.point_in_polygon(ix, jy, polygon):
+                for posi in posi_zone:
+                    x1, x2 = posi[0] / reduced_x, posi[2] / reduced_x
+                    x3, x4 = posi[4] / reduced_x, posi[6] / reduced_x
+                    y1, y2 = posi[1] / reduced_y, posi[3] / reduced_y
+                    y3, y4 = posi[5] / reduced_y, posi[7] / reduced_y
+                    posi_poly = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
+                    if point_check.point_in_polygon(ix, jy, posi_poly):
                         y_class_label[ix][jy] = 1
-        # output classificaiton label is (80, 80, 1)
+                for gray in gray_zone:
+                    x1, x2 = gray[0] / reduced_x, gray[2] / reduced_x
+                    x3, x4 = gray[4] / reduced_x, gray[6] / reduced_x
+                    y1, y2 = gray[1] / reduced_y, gray[3] / reduced_y
+                    y3, y4 = gray[5] / reduced_y, gray[7] / reduced_y
+                    gray_poly = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
+                    if point_check.point_in_polygon(ix, jy, gray_poly):
+                        mask_label[ix][jy] = 0
         # calculate ones's locations before expand the dimension of y_class_label
         one_locs = np.where(y_class_label > 0)
         y_class_label = np.expand_dims(y_class_label, axis=-1)
+        mask_label = np.expand_dims(mask_label, axis=-1)
+
         # 3) generate regression data
         y_regr_lable = np.zeros((80, 80, 8))
         # visit all text pixel
@@ -406,7 +466,7 @@ def image_output_pair(images):
                 x3, x4 = polygon[4] / reduced_x, polygon[6] / reduced_x
                 y1, y2 = polygon[1] / reduced_y, polygon[3] / reduced_y
                 y3, y4 = polygon[5] / reduced_y, polygon[7] / reduced_y
-                # 80 * 80  size image's quardrangle
+                # 80 * 80 image's quardrangle
                 quard = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
                 ix = one_locs[0][idx]
                 jy = one_locs[1][idx]
@@ -425,8 +485,9 @@ def image_output_pair(images):
                     y_regr_lable[ix][jy][5] = dow_righ_y * 4 - jy * 4
                     y_regr_lable[ix][jy][6] = dow_left_x * 4 - ix * 4
                     y_regr_lable[ix][jy][7] = dow_left_y * 4 - jy * 4
-        y_merge_label = np.concatenate((y_regr_lable, y_class_label), axis=-1)
-        yield (img, y_class_label, y_merge_label)
+        y_regr_cls_mask_label = np.concatenate((y_regr_lable, y_class_label, mask_label), axis=-1)
+        y_cls_mask_label = np.concatenate((y_class_label, mask_label), axis=-1)
+        yield (img, y_cls_mask_label, y_regr_cls_mask_label)
 
 
 def group_by_batch(dataset, batch_size):
@@ -451,7 +512,7 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 
 if __name__ == '__main__':
-    gpu_id = '1'
+    gpu_id = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
@@ -466,16 +527,16 @@ if __name__ == '__main__':
     # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=[my_hinge, new_smooth])
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # resume training
-    multask_model = load_model('model/2017-07-03-16-25-loss-decrease-78-1.64.hdf5',
+    multask_model = load_model('model/2017-07-04-14-30-loss-decrease-99-0.18.hdf5',
                                custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     # use python generator to generate training data
-    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_cropped320', 320, 64)
+    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
     val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_test', 320, 64)
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
     filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     # fit model
-    model_info = multask_model.fit_generator(train_set, steps_per_epoch=1000, epochs=10000, callbacks=callbacks_list,
-                                             validation_data=val_set, validation_steps=10, initial_epoch=80)
+    model_info = multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
+                                             validation_data=val_set, validation_steps=10, initial_epoch=101)
     # plot_model_history(model_info)
