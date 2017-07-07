@@ -405,8 +405,8 @@ if __name__ == '__main__':
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
         callbacks_list = [checkpoint]
         # fit model
-        model_info = multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
-                                                 validation_data=val_set, validation_steps=10, initial_epoch=0)
+        multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
+                                    validation_data=val_set, validation_steps=10, initial_epoch=0)
     else:
         print 'reading data from h5 file .....'
         filenamelist = ['dataset/train.h5']
@@ -419,5 +419,5 @@ if __name__ == '__main__':
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
         callbacks_list = [checkpoint]
         # fit model
-        model_info = loss_class = multask_model.fit(X, Y, batch_size=64, epochs=10000, shuffle=True,
-                                                    callbacks=callbacks_list, verbose=1, validation_split=0.1)
+        multask_model.fit(X, Y, batch_size=64, epochs=10000, shuffle=True, callbacks=callbacks_list,
+                          verbose=1, validation_split=0.1)
