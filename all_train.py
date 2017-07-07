@@ -12,14 +12,12 @@ from keras.callbacks import ModelCheckpoint
 from keras import optimizers
 from keras.layers import Input
 from keras.models import Model, load_model
-from shapely.geometry import Polygon
 from keras.preprocessing.image import list_pictures
 from tools.get_data import get_zone
 import tools.point_check as point_check
 import cv2
 import string
 import numpy as np
-import random as rd
 import os
 import re
 import h5py
@@ -69,21 +67,27 @@ def read_multi_h5file(filelist):
 
 def l2(y_true, y_pred):
     """
-
-    :param y_true:
+    L2 loss, not divide batch size
+    :param y_true: Ground truth for category, negative is 0, positive is 1
+                   tensor shape (?, 80, 80, 2)
+                   (?, 80, 80, 0): classification label
+                   (?, 80, 80, 1): mask label,
+                                   0 represent margin between pisitive and negative region, not contribute to loss
+                                   1 represent positive and negative region
     :param y_pred:
-    :return:
+    :return: A tensor (1, ) total loss of a batch / all contributed pixel
     """
     # extract mask label
     mask_label = tf.expand_dims(y_true[:, :, :, 1], axis=-1)
-    # count the number of 1 in mask_label tensor, the number of contributed pixels
+    # count the number of 1 in mask_label tensor, number of contributed pixels(for each output feature map in batch)
     num_contributed_pixel = tf_count(mask_label, 1)
+    # extract classification label
+    clas_label = tf.expand_dims(y_true[:, :, :, 0], axis=-1)
     # int32 to flot 32
     num_contributed_pixel = tf.cast(num_contributed_pixel, tf.float32)
 
-    clas_label = tf.expand_dims(y_true[:, :, :, 0], axis=-1)
-    loss = tf.reduce_sum(tf.square(clas_label - y_pred)) / num_contributed_pixel
-
+    loss = tf.reduce_sum(tf.multiply(mask_label, tf.square(clas_label - y_pred))) / num_contributed_pixel
+    # divide batch_size
     # loss = loss / tf.to_float(tf.shape(y_true)[0])
     return loss
 
@@ -91,13 +95,11 @@ def l2(y_true, y_pred):
 def my_hinge(y_true, y_pred):
     """
     Compute hinge loss for classification, return batch loss, not divide batch_size
-    :param y_true: Ground truth for category,
-                   negative is 0, positive is 1
+    :param y_true: Ground truth for category, negative is 0, positive is 1
                    tensor shape (?, 80, 80, 2)
                    (?, 80, 80, 0): classification label
                    (?, 80, 80, 1): mask label,
-                                   0 represent margin between pisitive and negative region, not contribute to
-                                   loss function
+                                   0 represent margin between pisitive and negative region, not contribute tot loss
                                    1 represent positive and negative region
     :param y_pred:
     :return: tensor shape (1, ), batch total loss / contirbuted pixels
@@ -106,10 +108,11 @@ def my_hinge(y_true, y_pred):
     mask_label = tf.expand_dims(y_true[:, :, :, 1], axis=-1)
     # count the number of 1 in mask_label tensor, the number of contributed pixels
     num_contributed_pixel = tf_count(mask_label, 1)
+    # extract classification label
+    clas_label = tf.expand_dims(y_true[:, :, :, 0], axis=-1)
     # int32 to flot 32
     num_contributed_pixel = tf.cast(num_contributed_pixel, tf.float32)
 
-    clas_label = tf.expand_dims(y_true[:, :, :, 0], axis=-1)
     exper_1 = tf.sign(0.5 - clas_label)
     exper_2 = y_pred - clas_label
     loss_mask = tf.multiply(mask_label, tf.square(tf.maximum(0.0, exper_1 * exper_2)))
@@ -118,9 +121,6 @@ def my_hinge(y_true, y_pred):
     loss = tf.reduce_sum(loss_mask) / num_contributed_pixel
     # divide batch_size
     # loss = loss / tf.to_float(tf.shape(y_true)[0])
-
-    # not set axis, reduce all dimensions, add all value / (batch_size * 80 * 80)
-    # loss = tf.reduce_mean(tf.square(tf.maximum(0.0, exper_1 * exper_2)))
     return loss
 
 
@@ -435,7 +435,7 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 
 if __name__ == '__main__':
-    gpu_id = '1'
+    gpu_id = '2'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
@@ -447,14 +447,14 @@ if __name__ == '__main__':
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # parallel, use 4 GPU(TODO)
     # compile model
-    # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd, metrics=[my_hinge, new_smooth])
-    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
+    # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
+    multask_model.compile(loss=[l2, new_smooth], optimizer=sgd)
     # resume training
-    multask_model = load_model('model/2017-07-04-14-30-loss-decrease-99-0.18.hdf5',
+    multask_model = load_model('model/2017-07-06-18-04-loss-decrease-41-1.46.hdf5',
                                custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     # use python generator to generate training data
     train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
-    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_test', 320, 64)
+    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center_test', 320, 32)
     date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
     filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
