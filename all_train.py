@@ -23,7 +23,6 @@ import re
 import h5py
 import tensorflow as tf
 import datetime
-import matplotlib.pyplot as plt
 
 
 def tf_count(t, val):
@@ -250,64 +249,6 @@ def multi_task(input_tensor):
     # return merged
 
 
-def plot_model_history(model_history):
-    fig, axs = plt.subplots(2, 2, figsize=(15, 5))
-    # summarize history for accuracy --- classification
-    axs[0][0].plot(range(1, len(model_history.history['cls_acc']) + 1), model_history.history['cls_acc'])
-    axs[0][0].plot(range(1, len(model_history.history['val_cls_acc']) + 1), model_history.history['val_cls_acc'])
-    axs[0][0].set_title('Model Accuracy Classification')
-    axs[0][0].set_ylabel('Accuracy')
-    axs[0][0].set_xlabel('Epoch')
-    axs[0][0].set_xticks(np.arange(1, len(model_history.history['cls_acc']) + 1), len(model_history.history['cls_acc']) / 10)
-    axs[0][0].legend(['train', 'val'], loc='best')
-
-    # summarize history for accuracy --- Regression
-    axs[0][1].plot(range(1, len(model_history.history['lambda_1_acc']) + 1), model_history.history['lambda_1_acc'])
-    axs[0][1].plot(range(1, len(model_history.history['val_lambda_1_acc']) + 1), model_history.history['val_lambda_1_acc'])
-    axs[0][1].set_title('Model Accuracy Regression')
-    axs[0][1].set_ylabel('Accuracy')
-    axs[0][1].set_xlabel('Epoch')
-    axs[0][1].set_xticks(np.arange(1, len(model_history.history['lambda_1_acc']) + 1), len(model_history.history['lambda_1_acc']) / 10)
-    axs[0][1].legend(['train', 'val'], loc='best')
-
-    # summarize history for loss --- classification
-    axs[1][0].plot(range(1, len(model_history.history['cls_loss']) + 1), model_history.history['cls_loss'])
-    axs[1][0].plot(range(1, len(model_history.history['val_cls_loss']) + 1), model_history.history['val_cls_loss'])
-    axs[1][0].set_title('Model Loss Classification')
-    axs[1][0].set_ylabel('Loss')
-    axs[1][0].set_xlabel('Epoch')
-    axs[1][0].set_xticks(np.arange(1, len(model_history.history['cls_loss']) + 1), len(model_history.history['cls_loss']) / 10)
-    axs[1][0].legend(['train', 'val'], loc='best')
-
-    # summarize history for loss --- Regression
-    axs[1][1].plot(range(1, len(model_history.history['lambda_1_loss']) + 1), model_history.history['lambda_1_loss'])
-    axs[1][1].plot(range(1, len(model_history.history['val_lambda_1_loss']) + 1), model_history.history['val_lambda_1_loss'])
-    axs[1][1].set_title('Model Loss Regression')
-    axs[1][1].set_ylabel('Loss')
-    axs[1][1].set_xlabel('Epoch')
-    axs[1][1].set_xticks(np.arange(1, len(model_history.history['lambda_1_loss']) + 1), len(model_history.history['lambda_1_loss']) / 10)
-    axs[1][1].legend(['train', 'val'], loc='best')
-
-    plt.show()
-
-
-def read_txts(txtpath):
-    """
-
-    :param txtpath:
-    :return: a list containing all text region clockwise coordinates which sotred in a tuple
-    """
-    coords = []
-    with open(txtpath, 'r') as f:
-        for line in f:
-            line_split = line.strip().split(',')
-            # clockwise
-            (x1, y1, x2, y2) = line_split[0:4]
-            (x3, y3, x4, y4) = line_split[4:8]
-            coords.append((x1, y1, x2, y2, x3, y3, x4, y4))
-    return coords
-
-
 def image_generator(list_of_files, crop_size=320, scale=1):
     """
     a python generator, read image's text region from txt file
@@ -421,8 +362,8 @@ def group_by_batch(dataset, batch_size):
     :return:
     """
     while True:
-        img, y_class_label, y_merge_label = zip(*[dataset.next() for i in xrange(batch_size)])
-        batch = (np.stack(img), [np.stack(y_class_label), np.stack(y_merge_label)])
+        img, y_cls_mask_label, y_regr_cls_mask_label = zip(*[dataset.next() for i in xrange(batch_size)])
+        batch = (np.stack(img), [np.stack(y_cls_mask_label), np.stack(y_regr_cls_mask_label)])
         yield batch
 
 
@@ -447,19 +388,36 @@ if __name__ == '__main__':
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # parallel, use 4 GPU(TODO)
     # compile model
+    # hinge loss
     # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
+    # L2 loss
     multask_model.compile(loss=[l2, new_smooth], optimizer=sgd)
     # resume training
     multask_model = load_model('model/2017-07-06-18-04-loss-decrease-41-1.46.hdf5',
-                               custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
-    # use python generator to generate training data
-    train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
-    val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center_test', 320, 32)
-    date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
-    filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
-    checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
-    callbacks_list = [checkpoint]
-    # fit model
-    model_info = multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
-                                             validation_data=val_set, validation_steps=10, initial_epoch=0)
-    # plot_model_history(model_info)
+                               custom_objects={'my_hinge': l2, 'new_smooth': new_smooth})
+    use_generator = False
+    if use_generator:
+        # use python generator to generate training data
+        train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
+        val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center_test', 320, 32)
+        date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
+        filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
+        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+        callbacks_list = [checkpoint]
+        # fit model
+        model_info = multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
+                                                 validation_data=val_set, validation_steps=10, initial_epoch=0)
+    else:
+        print 'reading data from h5 file .....'
+        filenamelist = ['dataset/train.h5']
+        X, Y = read_multi_h5file(filenamelist)
+        print 'traning data, input shape is {0}, output classifiction shape is {1}, regression shape is {2}'. \
+            format(X.shape, Y[0].shape, Y[1].shape)
+        # get date and time
+        date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
+        filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
+        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+        callbacks_list = [checkpoint]
+        # fit model
+        model_info = loss_class = multask_model.fit(X, Y, batch_size=64, epochs=10000, shuffle=True,
+                                                    callbacks=callbacks_list, verbose=1, validation_split=0.1)
