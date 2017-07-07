@@ -245,15 +245,34 @@ def image_generator_not_random(list_of_files, crop_size=320, scale=1):
             yield [scale * cropped_image, text_region]
 
 
-def image_output_pair(images):
+def image_output_pair(path, scale):
     """
 
-    :param images:
+    :param path:
+    :param scale:
     :return:
     """
-    for img, txtreg in images:
+    all_images, num = get_raw_data(path)
+    # print len(all_images)
+    # for img, txtreg in images:
+    for image in all_images:
+        # print image['imagePath']
+        img = cv2.imread(image['imagePath'])
+        # 0) according to image path generate text_region is a list which element is aslo a list whose elemnt is a float
+        txtreg = []
+        patt = re.compile('jpg')
+        txtpath = patt.sub('txt', image['imagePath'])
+        with open(txtpath, 'r') as f:
+            for line in f:
+                line_split = line.strip().split(',')
+                # print line_split
+                # clockwise
+                (x1, y1, x2, y2) = line_split[0:4]
+                (x3, y3, x4, y4) = line_split[4:8]
+                txtreg.append([string.atof(x1), string.atof(y1), string.atof(x2), string.atof(y2),
+                               string.atof(x3), string.atof(y3), string.atof(x4), string.atof(y4)])
         # 1) generate imput data, input data is (320, 320, 3)
-
+        # img *= scale
         # 2) generate clsssification data
         # split text region into gray_zone and posi_zone
         gray_zone, posi_zone = get_zone(txtreg)
@@ -316,7 +335,7 @@ def image_output_pair(images):
                     y_regr_lable[ix][jy][7] = dow_left_y * 4 - jy * 4
         y_regr_cls_mask_label = np.concatenate((y_regr_lable, y_class_label, mask_label), axis=-1)
         y_cls_mask_label = np.concatenate((y_class_label, mask_label), axis=-1)
-        yield (img, y_cls_mask_label, y_regr_cls_mask_label)
+        yield (scale * img, y_cls_mask_label, y_regr_cls_mask_label)
 
 
 def gene_h5_train_file(data_path):
@@ -332,12 +351,14 @@ def gene_h5_train_file(data_path):
     os.chdir(data_path)
     jpgfiles = glob.glob('*.jpg')
     idx = 1
+    # the position of generator objector is very important
+    gene_obj = image_output_pair(data_path, 1/255.0)
     while True:
         if idx == len(jpgfiles):
             break
         print '\t{0}/{1}'.format(idx, len(jpgfiles))
-        generator = image_generator_not_random(jpgfiles)
-        gene_obj = image_output_pair(generator)
+        # the position of generator objector is very important
+        # gene_obj = image_output_pair(data_path, 1/255.0)
         img_it, y_cls_mask_it, y_reg_cls_mask_it = gene_obj.next()
         img.append(img_it)
         y_cls_mask.append(y_cls_mask_it)
@@ -354,7 +375,7 @@ def gene_h5_train_file(data_path):
     print 'y_reg data shape is {0}'.format(y_reg.shape)
     
     # wirte data
-    file_write = h5py.File('../train.h5', 'w')
+    file_write = h5py.File('train.h5', 'w')
     file_write.create_dataset('X_train', data=img_input)
     file_write.create_dataset('Y_train_cls', data=y_cls)
     file_write.create_dataset('Y_train_merge', data=y_reg)
