@@ -14,6 +14,7 @@ from keras.layers import Input
 from keras.models import Model, load_model
 from keras.preprocessing.image import list_pictures
 from tools.get_data import get_zone
+# from keras.utils.data_utils import Sequence
 import tools.point_check as point_check
 import cv2
 import string
@@ -23,6 +24,9 @@ import re
 import h5py
 import tensorflow as tf
 import datetime
+import keras as ks
+
+# class ICDARSequence(Sequence):
 
 
 def tf_count(t, val):
@@ -376,6 +380,7 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 
 if __name__ == '__main__':
+    print ks.__version__
     gpu_id = '2'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
@@ -385,17 +390,17 @@ if __name__ == '__main__':
     multask_model = Model(img_input, multi[0:2])
     # multask_model = Model(img_input, multi)
     # define optimizer
-    sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
+    sgd = optimizers.SGD(lr=0.0001, decay=4e-4, momentum=0.9)
     # parallel, use 4 GPU(TODO)
     # compile model
     # hinge loss
     # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # L2 loss
-    multask_model.compile(loss=[l2, new_smooth], optimizer=sgd)
+    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # resume training
     multask_model = load_model('model/2017-07-06-18-04-loss-decrease-41-1.46.hdf5',
-                               custom_objects={'my_hinge': l2, 'new_smooth': new_smooth})
-    use_generator = False
+                               custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+    use_generator = True
     if use_generator:
         # use python generator to generate training data
         train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
@@ -409,7 +414,7 @@ if __name__ == '__main__':
                                     validation_data=val_set, validation_steps=10, initial_epoch=0)
     else:
         print 'reading data from h5 file .....'
-        filenamelist = ['dataset/train.h5']
+        filenamelist = ['dataset/train_1', 'dataset/train_2', 'dataset/train_3']
         X, Y = read_multi_h5file(filenamelist)
         print 'traning data, input shape is {0}, output classifiction shape is {1}, regression shape is {2}'. \
             format(X.shape, Y[0].shape, Y[1].shape)
