@@ -381,7 +381,8 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 if __name__ == '__main__':
     print ks.__version__
-    gpu_id = '2'
+    # gpu_id = '2'
+    gpu_id = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
