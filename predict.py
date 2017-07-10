@@ -346,7 +346,6 @@ if __name__ == '__main__':
             x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6])
             y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7])
             score.append(predict_cls[one_locs[0][idx]][one_locs[1][idx]])
-
         # nms
         dets = []
         for idx in xrange(len(x1)):
@@ -355,23 +354,33 @@ if __name__ == '__main__':
         thresh = 0.3
         idx_after_nms = []
         idx_after_nms = nms.poly_nms(np.array(dets), thresh)
-        print 'idx_after_nms---->{0}/{1}'.format(idx_after_nms, len(dets))
 
         # nms
         img = cv2.imread(img_data['imagePath'])
         img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_draw)
-        for i in xrange(len(one_locs[0])):
-            # draw predicted text region in pixel level on raw image(1000 * 1000), and save image
-            # use the coordinates is on the raw image(1000 * 1000)
-            draw.text(([coord[0][i], coord[1][i]]), "O", "red")
-            # draw regression parameters on iamge
-            top_left = [coord[0][i] + x1[i], coord[1][i] + y1[i]]
-            top_righ = [coord[0][i] + x2[i], coord[1][i] + y2[i]]
-            dow_righ = [coord[0][i] + x3[i], coord[1][i] + y3[i]]
-            dow_left = [coord[0][i] + x4[i], coord[1][i] + y4[i]]
-            draw.polygon([(top_left[0], top_left[1]), (top_righ[0], top_righ[1]),
-                          (dow_righ[0], dow_righ[1]), (dow_left[0], dow_left[1])], outline="black")
+
+        use_nms = True
+
+        if use_nms:
+            for i in idx_after_nms:
+                draw.polygon([(dets[i][0] + coord[0][i], dets[i][1] + coord[1][i]),
+                              (dets[i][2] + coord[0][i], dets[i][3] + coord[1][i]),
+                              (dets[i][4] + coord[0][i], dets[i][5] + coord[1][i]),
+                              (dets[i][6] + coord[0][i], dets[i][7] + coord[1][i])], outline="blue")
+        else:
+            for i in xrange(len(one_locs[0])):
+                # draw predicted text region in pixel level on raw image(1000 * 1000), and save image
+                # use the coordinates is on the raw image(1000 * 1000)
+                draw.text(([coord[0][i], coord[1][i]]), "O", "red")
+                # draw regression parameters on iamge
+                top_left = [coord[0][i] + x1[i], coord[1][i] + y1[i]]
+                top_righ = [coord[0][i] + x2[i], coord[1][i] + y2[i]]
+                dow_righ = [coord[0][i] + x3[i], coord[1][i] + y3[i]]
+                dow_left = [coord[0][i] + x4[i], coord[1][i] + y4[i]]
+                draw.polygon([(top_left[0], top_left[1]), (top_righ[0], top_righ[1]),
+                              (dow_righ[0], dow_righ[1]), (dow_left[0], dow_left[1])], outline="black")
+
         img_draw = np.array(img_draw)
         img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
 
