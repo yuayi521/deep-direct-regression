@@ -201,8 +201,8 @@ def resize_image_from_textcenter(imgs, outdir, size=320):
 
 if __name__ == '__main__':
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/shumei_train/shum')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_dataset/train')
-    resize_image_from_textcenter(all_imgs, '/home/yuquanjie/Documents/icdar2017_crop_center', 320)
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_dataset/val')
+    resize_image_from_textcenter(all_imgs, '/home/yuquanjie/Documents/icdar2017_crop_center_test', 320)
     # capture_image_random(all_imgs, '/home/yuquanjie/Documents/shumei_crop', 320, 2200 / 2)
     # capture_image_random(all_imgs, '/home/yuquanjie/Documents/shumei_crop', 320, 2200 / 10)
 
