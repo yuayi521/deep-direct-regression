@@ -1,5 +1,6 @@
 import os
 import string
+import sys
 import numpy as np
 import cv2
 import re
@@ -338,11 +339,12 @@ def image_output_pair(path, scale):
         yield (scale * img, y_cls_mask_label, y_regr_cls_mask_label)
 
 
-def gene_h5_train_file(data_path):
+def gene_h5_train_file(data_path, h5_name):
     """
     read training txt and image file, then generate y_cls_label, y_regr_label, mask_label, and write these label
     into h5 file
     :param data_path: jpg and txt file path
+    :param h5_name:
     :return: No return value, just write h5 file on disk
     """
     img = []
@@ -375,30 +377,24 @@ def gene_h5_train_file(data_path):
     print 'y_reg data shape is {0}'.format(y_reg.shape)
     
     # wirte data
-    file_write = h5py.File('train.h5', 'w')
+    h5 = '/home/yuquanjie/Documents/train_' + h5_name
+    file_write = h5py.File(h5, 'w')
     file_write.create_dataset('X_train', data=img_input)
     file_write.create_dataset('Y_train_cls', data=y_cls)
     file_write.create_dataset('Y_train_merge', data=y_reg)
     file_write.close()
 
 
-def test_gene_h5_train_file():
-    """
-
-    :return:
-    """
-    gene_h5_train_file('/home/yuquanjie/Documents/icdar2017_crop_center')
-
 if __name__ == '__main__':
     # get_raw_data('/home/yuquanjie/Documents/icdar2017_crop_center_test', True)
-
     test_get_zone_function = False
     if test_get_zone_function:
         test_get_zone()
 
-    test_gene_h5_train_file_b = True
-    if test_gene_h5_train_file_b:
-        test_gene_h5_train_file()
+    write_h5 = True
+    if write_h5:
+        jpg_txt_dir = '/home/yuquanjie/Documents/splited_train_data/train_' + sys.argv[1]
+        gene_h5_train_file(jpg_txt_dir, sys.argv[1])
 
 
 
