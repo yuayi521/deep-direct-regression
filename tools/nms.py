@@ -14,12 +14,8 @@ def poly_nms(dets, thresh):
     x3, y3 = dets[:, 4], dets[:, 5]
     x4, y4 = dets[:, 6], dets[:, 7]
     scores = dets[:, 8]
-    areas = []
-    for idx in xrange(len(x1)):
-        poly = Polygon([(x1[idx], y1[idx]), (x4[idx], y4[idx]),
-                        (x3[idx], y3[idx]), (x2[idx], y2[idx])])
-        areas.append(poly.area)
     order = scores.argsort()[::-1]
+
     keep = []
     while order.size > 0:
         i_max = order[0]
@@ -32,11 +28,13 @@ def poly_nms(dets, thresh):
                                   (x3[i], y3[i]), (x2[i], y2[i])])
             if max_scored_poly.intersects(other_poly):
                 inter_area = max_scored_poly.intersection(other_poly)
-                over.append(inter_area / (max_scored_poly.area + other_poly.area - inter_area))
+                over.append(inter_area.area / (max_scored_poly.area + other_poly.area - inter_area.area))
             else:
                 over.append(0)
 
-        inds = np.where(over <= thresh)[0]
+        # inds = np.where(over <= thresh)[0]
+        # np.where handle numpy array, can not handle list
+        inds = np.where(np.array(over) <= thresh)[0]
         order = order[inds + 1]
     return keep
 
