@@ -19,7 +19,48 @@ import os
 from PIL import Image, ImageDraw
 import tools.get_data as get_data
 import tools.point_check as point_check
+import tools.nms as nms
 import re
+
+
+def tf_count(t, val):
+    """
+    https://stackoverflow.com/questions/36530944/how-to-get-the-count-of-an-element-in-a-tensor
+    :param t:
+    :param val:
+    :return:
+    """
+    elements_equal_to_value = tf.equal(t, val)
+    as_ints = tf.cast(elements_equal_to_value, tf.int32)
+    count = tf.reduce_sum(as_ints)
+    return count
+
+
+def l2(y_true, y_pred):
+    """
+    L2 loss, not divide batch size
+    :param y_true: Ground truth for category, negative is 0, positive is 1
+                   tensor shape (?, 80, 80, 2)
+                   (?, 80, 80, 0): classification label
+                   (?, 80, 80, 1): mask label,
+                                   0 represent margin between pisitive and negative region, not contribute to loss
+                                   1 represent positive and negative region
+    :param y_pred:
+    :return: A tensor (1, ) total loss of a batch / all contributed pixel
+    """
+    # extract mask label
+    mask_label = tf.expand_dims(y_true[:, :, :, 1], axis=-1)
+    # count the number of 1 in mask_label tensor, number of contributed pixels(for each output feature map in batch)
+    num_contributed_pixel = tf_count(mask_label, 1)
+    # extract classification label
+    clas_label = tf.expand_dims(y_true[:, :, :, 0], axis=-1)
+    # int32 to flot 32
+    num_contributed_pixel = tf.cast(num_contributed_pixel, tf.float32)
+
+    loss = tf.reduce_sum(tf.multiply(mask_label, tf.square(clas_label - y_pred))) / num_contributed_pixel
+    # divide batch_size
+    # loss = loss / tf.to_float(tf.shape(y_true)[0])
+    return loss
 
 
 def my_hinge(y_true, y_pred):
@@ -269,12 +310,12 @@ if __name__ == '__main__':
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # train data, test model using train data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_crop_center')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_crop_center_test')
     data_gen_train = get_train_data(all_imgs)
     while True:
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
         # load model
-        final_model = load_model('model/2017-07-06-16-01-loss-decrease-101-0.17.hdf5',
+        final_model = load_model('model/2017-07-09-14-55-loss-decrease-48-1.20.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(1/255.0 * X)
@@ -283,43 +324,40 @@ if __name__ == '__main__':
         # reduce first and last dimension
         predict_cls = np.sum(predict_cls, axis=-1)
         predict_cls = np.sum(predict_cls, axis=0)
-        # one_locs type is tuple, negative lable is -1
-        one_locs = np.where(predict_cls > 0)
         # one_locs type is tuple, negative lable is 0
         one_locs = np.where(predict_cls > 0.7)
         # coord type is list
         # firstly, each pixel of 80 * 80 feature map multiply 4, get pixel classification on 320 * 320
         coord = [one_locs[0] * 4, one_locs[1] * 4]
-        # seconly, each pixel of 320 * 320 multiply reduced scale, get pixel classification on 1000 * 1000
-        # raw image's size (1000 * 1000) / (320 * 320), 1st dimensiom represent width reduced scale
-        reduced_scale = [raw_img.shape[1] / 320.0, raw_img.shape[0] / 320.0]
-        # coord represent the text's coordinates on raw image (1000 * 1000)
-        coord = [coord[0] * reduced_scale[0], coord[1] * reduced_scale[1]]
         # 2) regression result
         predict_regr = predict_all[1]
         # reduce dimension from (1, 80, 80, 8) to (80, 80, 8)
         predict_regr = np.sum(predict_regr, axis=0)
         # x, y represent each text pixel's 8 coordiantes , non-text pixel doesn't have this
-        x1 = []
-        y1 = []
-        x2 = []
-        y2 = []
-        x3 = []
-        y3 = []
-        x4 = []
-        y4 = []
-        # predict_regr is 3 dimension, 1st and 2nd dimension range is 0-79, should use one_locs not coords
-        # predict_regr[][][] * reduced_scale to get the coordinates on the raw image (1000 * 1000)
+        x1, y1, x2, y2, x3, y3, x4, y4, score = [], [], [], [], [], [], [], [], []
+        # predict_regr is 3 dimension, predict_regr[][][], 1st and 2nd dimension range is 0-79, should use one_locs
         for idx in xrange(len(one_locs[0])):
-            x1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][0] * reduced_scale[0])
-            y1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][1] * reduced_scale[1])
-            x2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][2] * reduced_scale[0])
-            y2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][3] * reduced_scale[1])
-            x3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][4] * reduced_scale[0])
-            y3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][5] * reduced_scale[1])
-            x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6] * reduced_scale[0])
-            y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7] * reduced_scale[1])
+            x1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][0])
+            y1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][1])
+            x2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][2])
+            y2.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][3])
+            x3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][4])
+            y3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][5])
+            x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6])
+            y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7])
+            score.append(predict_cls[one_locs[0][idx]][one_locs[1][idx]])
 
+        # nms
+        dets = []
+        for idx in xrange(len(x1)):
+            dets.append([x1[idx], y1[idx], x2[idx], y2[idx],
+                         x3[idx], y3[idx], x4[idx], y4[idx], score[idx]])
+        thresh = 0.3
+        idx_after_nms = []
+        idx_after_nms = nms.poly_nms(np.array(dets), thresh)
+        print 'idx_after_nms---->{0}/{1}'.format(idx_after_nms, len(dets))
+
+        # nms
         img = cv2.imread(img_data['imagePath'])
         img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_draw)
