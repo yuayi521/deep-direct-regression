@@ -11,10 +11,10 @@ import os
 import re
 
 if __name__ == '__main__':
-    jpgfiles = glob.glob(r'/home/yuquanjie/Documents/deep-direct-regression/resized_320/*.jpg')
+    jpgfiles = glob.glob(r'/home/yuquanjie/Documents/icdar2017_crop_center/*.jpg')
     idx = 1
     dir_idx = 1
-    workdir = '/home/yuquanjie/Documents/deep-direct-regression/resized_320/'
+    workdir = '/home/yuquanjie/Documents/splited_train_data/'
     to_move_list_jpg = []
     to_move_list_txt = []
 
@@ -26,15 +26,15 @@ if __name__ == '__main__':
         to_move_list_txt.append(txt)
         if idx % 4000 == 0:
             print 'writing directory {0}'.format('train_' + bytes(dir_idx))
-            imag_dir = workdir + 'train_' + bytes(dir_idx) + '/image'
-            text_dir = workdir + 'train_' + bytes(dir_idx) + '/text'
+            imag_dir = workdir + 'train_' + bytes(dir_idx)
+            # text_dir = workdir + 'train_' + bytes(dir_idx) + '/text'
             os.makedirs(imag_dir)
-            os.makedirs(text_dir)
+            # os.makedirs(text_dir)
             for i in range(len(to_move_list_jpg)):
                 shell_commd = 'cp ' + to_move_list_jpg[i] + ' ' + imag_dir
                 print shell_commd
                 os.system(shell_commd)
-                shell_commd = 'cp ' + to_move_list_txt[i] + ' ' + text_dir
+                shell_commd = 'cp ' + to_move_list_txt[i] + ' ' + imag_dir
                 os.system(shell_commd)
             # emtpy variable
             to_move_list_jpg = []
