@@ -315,27 +315,28 @@ if __name__ == '__main__':
     while True:
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
         # load model
-        final_model = load_model('model/2017-07-09-14-55-loss-decrease-48-1.20.hdf5',
+        final_model = load_model('model/2017-07-09-14-08-loss-decrease-113-1.02.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(1/255.0 * X)
         # 1) classification result
         predict_cls = predict_all[0]
-        # reduce first and last dimension
+        # reduce dimension from (1, 80, 80, 1) to (80, 80)
         predict_cls = np.sum(predict_cls, axis=-1)
         predict_cls = np.sum(predict_cls, axis=0)
-        # one_locs type is tuple, negative lable is 0
+        # the pixel of text region on 80 * 80 feature map
         one_locs = np.where(predict_cls > 0.7)
-        # coord type is list
-        # firstly, each pixel of 80 * 80 feature map multiply 4, get pixel classification on 320 * 320
+        # the pixel of text region on 320 * 320 raw image
         coord = [one_locs[0] * 4, one_locs[1] * 4]
+
         # 2) regression result
         predict_regr = predict_all[1]
         # reduce dimension from (1, 80, 80, 8) to (80, 80, 8)
         predict_regr = np.sum(predict_regr, axis=0)
-        # x, y represent each text pixel's 8 coordiantes , non-text pixel doesn't have this
+        # x1-4, y1-4 represent pixel(320 * 320 raw image) of text region's 8 corner coordinates
         x1, y1, x2, y2, x3, y3, x4, y4, score = [], [], [], [], [], [], [], [], []
-        # predict_regr is 3 dimension, predict_regr[][][], 1st and 2nd dimension range is 0-79, should use one_locs
+        # predict_regr[][][], 1st and 2nd are 80 * 80 feature's coordinates
+        # for each text region(cls > 0.7) on 80 * 80 feature map, calculate it's 8 corner coordinates
         for idx in xrange(len(one_locs[0])):
             x1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][0])
             y1.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][1])
@@ -345,23 +346,45 @@ if __name__ == '__main__':
             y3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][5])
             x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6])
             y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7])
-            score.append(predict_cls[one_locs[0][idx]][one_locs[1][idx]])
+            use_aver_score = True
+            if not use_aver_score:
+                score.append(predict_cls[one_locs[0][idx]][one_locs[1][idx]])
+            else:
+                feat_map_poly = [(predict_regr[one_locs[0][idx]][one_locs[1][idx]][0] / 4,
+                                  predict_regr[one_locs[0][idx]][one_locs[1][idx]][1] / 4),
+                                 (predict_regr[one_locs[0][idx]][one_locs[1][idx]][2] / 4,
+                                  predict_regr[one_locs[0][idx]][one_locs[1][idx]][3] / 4),
+                                 (predict_regr[one_locs[0][idx]][one_locs[1][idx]][4] / 4,
+                                  predict_regr[one_locs[0][idx]][one_locs[1][idx]][5] / 4),
+                                 (predict_regr[one_locs[0][idx]][one_locs[1][idx]][6] / 4,
+                                  predict_regr[one_locs[0][idx]][one_locs[1][idx]][7] / 4)]
+                acc_score = 0.0
+                num_score = 0
+                for ix in xrange(80):
+                    for jy in xrange(80):
+                        if point_check.point_in_polygon(ix, jy, feat_map_poly):
+                            num_score += 1
+                            acc_score += predict_cls[ix][jy]
+                score.append(acc_score / num_score)
+
         # nms
+        # dets store all predicted text region pixel's 8 corner coord and score
         dets = []
         for idx in xrange(len(x1)):
             dets.append([x1[idx], y1[idx], x2[idx], y2[idx],
                          x3[idx], y3[idx], x4[idx], y4[idx], score[idx]])
         thresh = 0.3
-        idx_after_nms = []
-        idx_after_nms = nms.poly_nms(np.array(dets), thresh)
 
-        # nms
+        # using nms for all bbox, the remaining bbox's index
+        idx_after_nms = []
+        if len(x1) > 0:
+            idx_after_nms = nms.poly_nms(np.array(dets), thresh)
+        else:
+            print 'no predicted text region pixel on {0}'.format(img_data['imagePath'])
         img = cv2.imread(img_data['imagePath'])
         img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_draw)
-
         use_nms = True
-
         if use_nms:
             for i in idx_after_nms:
                 draw.polygon([(dets[i][0] + coord[0][i], dets[i][1] + coord[1][i]),
@@ -370,8 +393,8 @@ if __name__ == '__main__':
                               (dets[i][6] + coord[0][i], dets[i][7] + coord[1][i])], outline="blue")
         else:
             for i in xrange(len(one_locs[0])):
-                # draw predicted text region in pixel level on raw image(1000 * 1000), and save image
-                # use the coordinates is on the raw image(1000 * 1000)
+                # draw predicted text region on raw image(320 * 320)
+                # use the coordinates on the raw image(320 * 320)
                 draw.text(([coord[0][i], coord[1][i]]), "O", "red")
                 # draw regression parameters on iamge
                 top_left = [coord[0][i] + x1[i], coord[1][i] + y1[i]]
@@ -385,8 +408,8 @@ if __name__ == '__main__':
         img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
 
         # get image name excluding directory path using regular expression
-        image_name = img_data['imagePath'].split('/')[-1]
-        image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name
+        image_name = img_data['imagePath'].split('/')[-1].split('.')[0]
+        image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name + '_useacc' + '.jpg'
         cv2.imwrite(image_path, img_draw[0: img_draw.shape[0], 0: img_draw.shape[1]])
 
 
