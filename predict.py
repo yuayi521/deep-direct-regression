@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw
 import tools.get_data as get_data
 import tools.point_check as point_check
 import tools.nms as nms
+import tools.draw_loss as draw_loss
 import re
 
 
@@ -109,7 +110,7 @@ def new_smooth(y_true, y_pred):
     return loss
 
 
-def multi_task(input_tensor=None, trainable=False):
+def multi_task(input_tensor=None):
     img_input = BatchNormalization()(input_tensor)
 
     # conv_1
@@ -288,7 +289,6 @@ def get_train_data(all_img):
                             y_regr_lable[ix][jy][6] = left_dow_x * 4 - ix * 4
                             y_regr_lable[ix][jy][7] = left_dow_y * 4 - jy * 4
                 y_regr_lable = np.expand_dims(y_regr_lable, axis=0)
-                # img is raw image, size is 2400 * 3200
                 yield np.copy(img_320), np.copy(y_class_lable), np.copy(y_regr_lable), np.copy(img), img_data
             else:
                 continue
@@ -300,7 +300,7 @@ if __name__ == '__main__':
     # define Input
     img_input = Input((320, 320, 3))
     # define network
-    multi = multi_task(img_input, trainable=True)
+    multi = multi_task(img_input)
     # multask_model = Model(img_input, multi[0:2])
     multask_model = Model(img_input, multi[0:2])
     # define optimizer
@@ -328,6 +328,8 @@ if __name__ == '__main__':
         one_locs = np.where(predict_cls > 0.7)
         # the pixel of text region on 320 * 320 raw image
         coord = [one_locs[0] * 4, one_locs[1] * 4]
+        # show classification heat map
+        draw_loss.heatmap_cls(predict_cls, img_data)
 
         # 2) regression result
         predict_regr = predict_all[1]
@@ -346,7 +348,7 @@ if __name__ == '__main__':
             y3.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][5])
             x4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][6])
             y4.append(predict_regr[one_locs[0][idx]][one_locs[1][idx]][7])
-            use_aver_score = True
+            use_aver_score = False
             if not use_aver_score:
                 score.append(predict_cls[one_locs[0][idx]][one_locs[1][idx]])
             else:
