@@ -32,7 +32,8 @@ def heatmap_cls(ndarray, img_data, img_cls, img_reg, fig_name):
     img = cv2.merge([r, g, b])
     ax2 = plt.subplot(222)
     ax2.title.set_text('raw image')
-    plt.imshow(img)
+    plt.imshow(ndarray)
+    # plt.imshow(img)
 
     # cls result
     ax3 = plt.subplot(223)
@@ -48,10 +49,10 @@ def heatmap_cls(ndarray, img_data, img_cls, img_reg, fig_name):
     img_reg = cv2.merge([r, g, b])
     plt.imshow(img_reg)
 
-    # plt.show()
-    plt.savefig(fig_name)
+    plt.show()
+    # plt.savefig(fig_name)
+    # important
     plt.close()
-
 
 
 def plot_model(cls_para, reg_para, val_cls_para, val_reg_para):
