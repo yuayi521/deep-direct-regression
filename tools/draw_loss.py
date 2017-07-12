@@ -4,27 +4,19 @@ from matplotlib import pyplot as plt
 import cv2
 
 
-def heatmap_cls(ndarray, img_data):
+def heatmap_cls(ndarray, img_data, img_cls, img_reg, fig_name):
     """
 
     :param ndarray:
     :param img_data:
     :return:
     """
-    # new_list = []
-    # list_nd = ndarray.tolist()
-    # while list_nd:
-    #     new_list.append(list_nd.pop())
-    # new_nd = np.array(new_list)
-    img = cv2.imread(img_data['imagePath'])
-    plt.subplot(221)
-    x = []
-    y = []
+    ax1 = plt.subplot(221)
+    ax1.title.set_text('heatmap')
+    x, y = [], []
     for i in xrange(1, 81):
         x.append(i)
         y.append(i)
-    # intensity = np.transpose(new_nd).tolist()
-    # intensity = ndarray.tolist()
     intensity = np.rot90(ndarray, 1).tolist()
     # setup the 2D grid with Numpy
     x, y = np.meshgrid(x, y)
@@ -33,9 +25,33 @@ def heatmap_cls(ndarray, img_data):
     # now just plug the data into pcolormesh, it's that easy!
     plt.pcolormesh(x, y, intensity)
     plt.colorbar()  # need a colorbar to show the intensity scale
-    plt.subplot(222)
+
+    # raw image
+    img = cv2.imread(img_data['imagePath'])
+    b, g, r = cv2.split(img)
+    img = cv2.merge([r, g, b])
+    ax2 = plt.subplot(222)
+    ax2.title.set_text('raw image')
     plt.imshow(img)
-    plt.show()
+
+    # cls result
+    ax3 = plt.subplot(223)
+    ax3.title.set_text('classification result(thresh=0.7)')
+    b, g, r = cv2.split(img_cls)
+    img_cls = cv2.merge([r, g, b])
+    plt.imshow(img_cls)
+
+    # regr result
+    ax4 = plt.subplot(224)
+    ax4.title.set_text('regression result, nms=0.3')
+    b, g, r = cv2.split(img_reg)
+    img_reg = cv2.merge([r, g, b])
+    plt.imshow(img_reg)
+
+    # plt.show()
+    plt.savefig(fig_name)
+    plt.close()
+
 
 
 def plot_model(cls_para, reg_para, val_cls_para, val_reg_para):
@@ -67,7 +83,7 @@ if __name__ == '__main__':
     reg = []
     val_cls = []
     val_reg = []
-    with open('../result/0711') as f:
+    with open('../result/0712') as f:
         for line in f:
             file_content.append(line)
 
