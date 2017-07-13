@@ -11,7 +11,7 @@ from keras.layers.core import Lambda
 from keras.callbacks import ModelCheckpoint
 from keras import optimizers
 from keras.layers import Input
-from keras.models import Model, load_model
+from keras.models import Model
 from keras.preprocessing.image import list_pictures
 from tools.get_data import get_zone
 from matplotlib import pyplot as plt
@@ -473,7 +473,7 @@ if __name__ == '__main__':
             print 'hello'
     # test
 
-    gpu_id = '0'
+    gpu_id = '2'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
@@ -483,26 +483,26 @@ if __name__ == '__main__':
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # parallel, use 4 GPU(TODO)
-
     # compile model
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
-    # resume training
-    # multask_model = load_model('model/2017-07-12-19-03-loss-decrease-65-1.05.hdf5',
-    #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+    # resume training, use loading weights, not loading model structure
+    multask_model.load_weights('model/2017-07-13-18-06-loss-decrease-05-5.80.hdf5')
     use_generator = True
     if use_generator:
-        # use python generator to generate training data
-        train_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center', 320, 64)
-        val_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center_test', 320, 32)
+        # shumei data
+        # train_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center', 320, 64)
+        # val_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center_test', 320, 64)
+
+        # icdar data
+        train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
+        val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center_test', 320, 64)
         date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
-        filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
-        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_weights_only=True, mode='min')
+        filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}-saved-weights.hdf5"
+        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True,
+                                     save_weights_only=True, mode='min')
         callbacks_list = [checkpoint]
-        # fit model
-        # multask_model.fit_generator(train_set, steps_per_epoch=1098 // 64, epochs=10000, callbacks=callbacks_list,
-        #                            validation_data=val_set, validation_steps=6, initial_epoch=0)
-        multask_model.fit_generator(train_set, steps_per_epoch=1098 // 64, epochs=10000, callbacks=callbacks_list,
-                                    initial_epoch=0)
+        multask_model.fit_generator(train_set, steps_per_epoch=17543 // 64, epochs=10000, callbacks=callbacks_list,
+                                    validation_data=val_set, validation_steps=1894//64, initial_epoch=0)
     else:
         print 'reading data from h5 file .....'
         filenamelist = ['dataset/train_1', 'dataset/train_2', 'dataset/train_3']
@@ -511,9 +511,8 @@ if __name__ == '__main__':
             format(X.shape, Y[0].shape, Y[1].shape)
         # get date and time
         date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
-        filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
+        filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}-saved-weights.hdf5"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_weights_only=True, mode='min')
         callbacks_list = [checkpoint]
-        # fit model
         multask_model.fit(X, Y, batch_size=64, epochs=10000, shuffle=True, callbacks=callbacks_list,
                           verbose=1, validation_split=0.1)
