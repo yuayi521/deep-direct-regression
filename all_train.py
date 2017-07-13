@@ -14,6 +14,8 @@ from keras.layers import Input
 from keras.models import Model, load_model
 from keras.preprocessing.image import list_pictures
 from tools.get_data import get_zone
+from matplotlib import pyplot as plt
+import copy
 import tools.point_check as point_check
 import cv2
 import string
@@ -240,29 +242,28 @@ def multi_task(input_tensor):
     ##########################################################################
     # shared layer
     ##########################################################################
-    x_clas = Convolution2D(1, (1, 1), strides=(1, 1), padding='same', name='cls')(upscore16)
+    # x_clas = Convolution2D(1, (1, 1), strides=(1, 1), padding='same', name='cls')(upscore16)
+    x_clas = Convolution2D(1, (1, 1), strides=(1, 1), padding='same', name='cls', activation='sigmoid')(upscore16)
     x = Convolution2D(128, (1, 1), strides=(1, 1), padding='same', activation='relu')(upscore16)
     x = Convolution2D(8, (1, 1), strides=(1, 1), padding='same', activation='sigmoid')(x)
     x_regr = Lambda(lambda t: 800 * t - 400)(x)
     return [x_clas, x_regr, x]
-    # merged = np.concatenate((x_regr, x_clas), axis=-1)
-    # return merged
 
 
-def image_generator(jpg_list, crop_size=320, scale=1):
+def img_txtreg_generator(jpgs_list, crop_size=320, scale=1):
     """
     a python generator, read image's text region from txt file
-    :param jpg_list: list, storing all jpg file path
+    :param jpgs_list: list, storing all jpgs's path
     :param crop_size: cropped image size
-    :param scale: normalization parameters
-    :return: A list [numpy array, text region list]
+    :param scale: normalization parameter
+    :return: A list [numpy array of image(normalized), text region list]
     """
-    vis = True
+    vis = False
     while True:
-        # store image's text region
-        text_region = []
+        # a list stores image's text region
+        text_reg_list = []
         # choose a image randomly from all images
-        jpg_path = np.random.choice(jpg_list)
+        jpg_path = np.random.choice(jpgs_list)
         img_nparr = cv2.imread(jpg_path)
         # get image's txt file path
         pattern = re.compile('jpg')
@@ -276,47 +277,56 @@ def image_generator(jpg_list, crop_size=320, scale=1):
                 # clockwise
                 (x1, y1, x2, y2) = line_split[0:4]
                 (x3, y3, x4, y4) = line_split[4:8]
-                text_region.append([string.atof(x1), string.atof(y1), string.atof(x2), string.atof(y2),
-                                    string.atof(x3), string.atof(y3), string.atof(x4), string.atof(y4)])
+                text_reg_list.append([string.atof(x1), string.atof(y1), string.atof(x2), string.atof(y2),
+                                      string.atof(x3), string.atof(y3), string.atof(x4), string.atof(y4)])
         # ensure jpg and txt file is not empty
-        if img_nparr is None or text_region is None:
+        if img_nparr is None or text_reg_list is None:
             continue
         # ensure jpg file's shape is 320 * 320
         if img_nparr.shape[0] != crop_size or img_nparr.shape[1] != crop_size:
             continue
+
         #       ------------------------------ visualise ------------------------------
         if vis:
             print 'txt_path is {0}'.format(txt_path)
-            for bbox in text_region:
+            for bbox in text_reg_list:
+                print 'bbox is {0}'.format(bbox)
                 # coordinates must be int type
                 poly = np.array([[[bbox[0], bbox[1]], [bbox[2], bbox[3]], [bbox[4], bbox[5]], [bbox[6], bbox[7]]]],
                                 dtype=np.int32)
                 cv2.fillPoly(img_nparr, poly, 255)
-            cv2.imshow('img', img_nparr)
-            cv2.waitKey(0)
-        yield [scale * img_nparr, text_region]
+            plt.subplot(221)
+            b, g, r = cv2.split(img_nparr)
+            img_nparr = cv2.merge([r, g, b])
+            plt.imshow(img_nparr)
+            plt.show()
+        #       ------------------------------ visualise ------------------------------
+        # normalize image data from [0, 255] to [0, 1]
+        scaled_img = scale * img_nparr
+        yield [scaled_img, text_reg_list]
 
 
-def image_output_pair(images):
+def image_ylabel_generator(images):
     """
 
     :param images:
     :return:
     """
+    vis = False
     for img, txtreg in images:
         # 1) generate imput data, input data is (320, 320, 3)
 
         # 2) generate clsssification data
-        # split text region into gray_zone and posi_zone
-        gray_zone, posi_zone = get_zone(txtreg)
+        # split text region into gray_zone_list and posi_zone_list
+        # gray_zone_list is a list, each element represent a gray zone
+        gray_zone_list, posi_zone_list = get_zone(txtreg)
         # x-axis and y-axis reduced scale
         reduced_x, reduced_y = float(img.shape[1]) / 80.0, float(img.shape[0]) / 80.0
         mask_label = np.ones((80, 80))
-        # y_class_label = -1 * np.ones((80, 80))  # negative lable is -1
         y_class_label = np.zeros((80, 80))  # negative lable is 0
         for ix in xrange(y_class_label.shape[0]):
             for jy in xrange(y_class_label.shape[1]):
-                for posi in posi_zone:
+                for posi in posi_zone_list:
                     x1, x2 = posi[0] / reduced_x, posi[2] / reduced_x
                     x3, x4 = posi[4] / reduced_x, posi[6] / reduced_x
                     y1, y2 = posi[1] / reduced_y, posi[3] / reduced_y
@@ -324,7 +334,7 @@ def image_output_pair(images):
                     posi_poly = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
                     if point_check.point_in_polygon(ix, jy, posi_poly):
                         y_class_label[ix][jy] = 1
-                for gray in gray_zone:
+                for gray in gray_zone_list:
                     x1, x2 = gray[0] / reduced_x, gray[2] / reduced_x
                     x3, x4 = gray[4] / reduced_x, gray[6] / reduced_x
                     y1, y2 = gray[1] / reduced_y, gray[3] / reduced_y
@@ -332,10 +342,64 @@ def image_output_pair(images):
                     gray_poly = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
                     if point_check.point_in_polygon(ix, jy, gray_poly):
                         mask_label[ix][jy] = 0
+        #       ------------------------------ visualise ------------------------------
+        if vis:
+            # raw image
+            # has normalized to [0 -1], should use anti-normalize ?
+            # b, g, r = cv2.split(img * 255.0)
+            b, g, r = cv2.split(img )
+            img = cv2.merge([r, g, b])
+            plt.subplot(221)
+            plt.imshow(img)
+
+            # positive region
+            plt_img = copy.deepcopy(img)
+            for ix in xrange(y_class_label.shape[0]):
+                for jy in xrange(y_class_label.shape[0]):
+                    if y_class_label[ix][jy] == 1:
+                        cv2.circle(plt_img, (int(ix) * 4, int(jy) * 4), radius=1, color=(0, 255, 0))
+            plt.subplot(222)
+            plt.imshow(plt_img)
+
+            # gray region
+            mask_img = copy.deepcopy(img)
+            for ix in xrange(mask_label.shape[0]):
+                for jy in xrange(mask_label.shape[0]):
+                    if mask_label[ix][jy] == 0:
+                        cv2.circle(mask_img, (int(ix) * 4, int(jy) * 4), 1, color=(255, 0, 0))
+            plt.subplot(224)
+            plt.imshow(mask_img)
+
+            plt.show()
+        #       ------------------------------ visualise ------------------------------
         # calculate ones's locations before expand the dimension of y_class_label
         one_locs = np.where(y_class_label > 0)
+        # deep copy for visualize
+        copy_class = copy.deepcopy(y_class_label)
+        copy_mask = copy.deepcopy(mask_label)
+        # print 'y_cls_lable {0}'.format(y_class_label)
         y_class_label = np.expand_dims(y_class_label, axis=-1)
+        # print 'y_cls_lable {0}'.format(y_class_label)
         mask_label = np.expand_dims(mask_label, axis=-1)
+        #       ------------------------------ visualise ------------------------------
+        if vis:
+            plt.subplot(221)
+            plt.imshow(img)
+
+            plt.subplot(222)
+            x, y = np.meshgrid(np.arange(0, 80), np.arange(0, 80))
+            copy_class = np.rot90(copy_class, 1).tolist()
+            plt.pcolormesh(x, y, copy_class)
+            plt.colorbar()  # need a colorbar to show the intensity scale
+
+            plt.subplot(224)
+            x, y = np.meshgrid(np.arange(0, 80), np.arange(0, 80))
+            copy_mask = np.rot90(copy_mask, 1).tolist()
+            plt.pcolormesh(x, y, copy_mask)
+            plt.colorbar()  # need a colorbar to show the intensity scale
+
+            plt.show()
+        #       ------------------------------ visualise ------------------------------
 
         # 3) generate regression data
         y_regr_lable = np.zeros((80, 80, 8))
@@ -393,41 +457,38 @@ def load_dataset(directory, crop_size=320, batch_size=32):
     :return: python generator object, a batch training data, img, y_cls_mask_lable, y_regr_cls_mask_label
     """
     jpg_list = list_pictures(directory, 'jpg')
-    generator = image_generator(jpg_list, crop_size, scale=1/255.0)
-    generator = image_output_pair(generator)
+    generator = img_txtreg_generator(jpg_list, crop_size, scale=1/255.0)
+    generator = image_ylabel_generator(generator)
     generator = group_by_batch(generator, batch_size)
     return generator
 
 
 if __name__ == '__main__':
     # test
-    jpg_list = list_pictures('/home/yuquanjie/Documents/shumei_crop_center', 'jpg')
-    generator = image_generator(jpg_list, 320, scale=1/255.0)
-    for ite in generator:
-        print 'hello'
-
-
-
+    if False:
+        jpg_l = list_pictures('/home/yuquanjie/Documents/shumei_crop_center', 'jpg')
+        genertor = img_txtreg_generator(jpg_l, 320, scale=1/255.0)
+        genertor = image_ylabel_generator(genertor)
+        for ite in genertor:
+            print 'hello'
     # test
-    gpu_id = '3'
+
+    gpu_id = '0'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
     img_input = Input((320, 320, 3))
     # define network
     multi = multi_task(img_input)
     multask_model = Model(img_input, multi[0:2])
-    # multask_model = Model(img_input, multi)
     # define optimizer
-    sgd = optimizers.SGD(lr=0.0001, decay=4e-4, momentum=0.9)
+    sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
     # parallel, use 4 GPU(TODO)
+
     # compile model
-    # hinge loss
-    # multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
-    # L2 loss
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # resume training
-    multask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
-                               custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+    # multask_model = load_model('model/2017-07-12-19-03-loss-decrease-65-1.05.hdf5',
+    #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     use_generator = True
     if use_generator:
         # use python generator to generate training data
@@ -435,11 +496,13 @@ if __name__ == '__main__':
         val_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center_test', 320, 32)
         date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
         filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
-        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_weights_only=True, mode='min')
         callbacks_list = [checkpoint]
         # fit model
+        # multask_model.fit_generator(train_set, steps_per_epoch=1098 // 64, epochs=10000, callbacks=callbacks_list,
+        #                            validation_data=val_set, validation_steps=6, initial_epoch=0)
         multask_model.fit_generator(train_set, steps_per_epoch=1098 // 64, epochs=10000, callbacks=callbacks_list,
-                                    validation_data=val_set, validation_steps=6, initial_epoch=0)
+                                    initial_epoch=0)
     else:
         print 'reading data from h5 file .....'
         filenamelist = ['dataset/train_1', 'dataset/train_2', 'dataset/train_3']
@@ -449,7 +512,7 @@ if __name__ == '__main__':
         # get date and time
         date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
         filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
-        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_weights_only=True, mode='min')
         callbacks_list = [checkpoint]
         # fit model
         multask_model.fit(X, Y, batch_size=64, epochs=10000, shuffle=True, callbacks=callbacks_list,
