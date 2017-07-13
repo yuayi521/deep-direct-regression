@@ -4,23 +4,16 @@
     @version created
     @email   yuquanjie13@gmail.com
 """
-from keras.layers import Convolution2D, MaxPooling2D, BatchNormalization
-from keras.layers.convolutional import Conv2DTranspose
-from keras.layers.merge import add
-from keras.layers.core import Lambda
-from keras import optimizers
-from keras.layers import Input
-from keras.models import Model, load_model
+from keras.models import load_model
 import tensorflow as tf
-import string
 import numpy as np
 import cv2
 import os
-from PIL import Image, ImageDraw
 import glob
 import tools.point_check as point_check
 import tools.nms as nms
 import tools.draw_loss as draw_loss
+from PIL import Image, ImageDraw
 
 
 def tf_count(t, val):
@@ -109,87 +102,6 @@ def new_smooth(y_true, y_pred):
     return loss
 
 
-def multi_task(input_tensor=None):
-    img_input = BatchNormalization()(input_tensor)
-
-    # conv_1
-    conv1_1 = Convolution2D(32, (5, 5), strides=(1, 1), padding='same',
-                            activation='relu', name='conv1_1')(img_input)
-    pool1 = MaxPooling2D((2, 2), strides=(2, 2), name='pool1')(conv1_1)
-
-    # conv_2
-    conv2_1 = Convolution2D(64, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv2_1')(pool1)
-    conv2_2 = Convolution2D(64, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv2_2')(conv2_1)
-    pool2 = MaxPooling2D((2, 2), strides=(2, 2), name='pool2')(conv2_2)
-
-    # conv_3
-    conv3_1 = Convolution2D(128, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv3_1')(pool2)
-    conv3_2 = Convolution2D(128, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv3_2')(conv3_1)
-    pool3 = MaxPooling2D((2, 2), strides=(2, 2), name='pool3')(conv3_2)
-    pool3_for_fuse = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
-                                   activation='relu', name='pool3_for_fuse')(pool3)
-
-    # conv_4
-    conv4_1 = Convolution2D(256, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv4_1')(pool3)
-    conv4_2 = Convolution2D(256, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv4_2')(conv4_1)
-    pool4 = MaxPooling2D((2, 2), strides=(2, 2), name='pool4')(conv4_2)
-    pool4_for_fuse = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
-                                   activation='relu', name='pool4_for_fuse')(pool4)
-
-    # conv_5
-    conv5_1 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv5_1')(pool4)
-    conv5_2 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv5_2')(conv5_1)
-    pool5 = MaxPooling2D((2, 2), strides=(2, 2), name='pool5')(conv5_2)
-    pool5_for_fuse = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
-                                   activation='relu', name='pool5_for_fuse')(pool5)
-
-    # conv_6
-    conv6_1 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv6_1')(pool5)
-    conv6_2 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
-                            activation='relu', name='conv6_2')(conv6_1)
-    pool6 = MaxPooling2D((2, 2), strides=(2, 2), name='pool6')(conv6_2)
-
-    #
-    conv7_1 = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
-                            activation='relu', name='conv7_1')(pool6)
-
-    upscore2 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
-                               strides=(2, 2), padding='valid', use_bias=False,
-                               name='upscore2')(conv7_1)
-
-    fuse_pool5 = add([upscore2, pool5_for_fuse])
-    upscore4 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
-                               strides=(2, 2), padding='valid', use_bias=False,
-                               name='upscore4')(fuse_pool5)
-    fuse_pool4 = add([upscore4, pool4_for_fuse])
-
-    upscore8 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
-                               strides=(2, 2), padding='valid', use_bias=False,
-                               name='upscore8')(fuse_pool4)
-    fuse_pool3 = add([upscore8, pool3_for_fuse])
-
-    upscore16 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
-                                strides=(2, 2), padding='valid', use_bias=False,
-                                name='upscore16')(fuse_pool3)
-    ##########################################################################
-    ####### shared layer
-    ##########################################################################
-    x_clas = Convolution2D(1, (1, 1), strides=(1, 1), padding='same', name='out_class')(upscore16)
-    x = Convolution2D(128, (1, 1), strides=(1, 1), padding='same', activation='relu')(upscore16)
-    x = Convolution2D(8, (1, 1), strides=(1, 1), padding='same', activation='sigmoid')(x)
-    x_regr = Lambda(lambda t: 800 * t - 400)(x)
-    return [x_clas, x_regr, x]
-
-
 def get_pred_img(all_img):
     """
     get image data for predicting
@@ -202,7 +114,6 @@ def get_pred_img(all_img):
             print img_path
             if os.path.isfile(img_path):
                 im_arr = cv2.imread(img_path)
-                im_arr
                 img_path_dict = {'imagePath': img_path}
                 yield np.copy(im_arr), img_path_dict
 
@@ -210,24 +121,13 @@ def get_pred_img(all_img):
 if __name__ == '__main__':
     gpu_id = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-    # define Input
-    img_input = Input((320, 320, 3))
-    # define network
-    multi = multi_task(img_input)
-    # multask_model = Model(img_input, multi[0:2])
-    multask_model = Model(img_input, multi[0:2])
-    # define optimizer
-    sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
-    # compile model
-    # multask_model.compile(loss=[my_hinge, smoothL1], optimizer=sgd)
-    multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
-    # train data, test model using train data
+
     all_imgs = glob.glob('/home/yuquanjie/Documents/shumei_crop_center_test/' + '*.jpg')
     # python generator
     data_gen_pred = get_pred_img(all_imgs)
     while True:
         X, img_data = data_gen_pred.next()
-        # load model
+        # load model, load model structure and weights
         final_model = load_model('model/2017-07-12-19-03-loss-decrease-65-1.05.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
@@ -235,6 +135,7 @@ if __name__ == '__main__':
         predict_all = final_model.predict_on_batch(1/255.0 * X)
         # 1) classification result
         predict_cls = predict_all[0]
+        print 'predict_cls--->{0}'.format(predict_cls)
         # reduce dimension from (1, 80, 80, 1) to (80, 80)
         predict_cls = np.sum(predict_cls, axis=-1)
         predict_cls = np.sum(predict_cls, axis=0)
