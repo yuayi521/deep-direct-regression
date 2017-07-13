@@ -386,12 +386,13 @@ def gene_h5_train_file(data_path, h5_name):
 
 
 if __name__ == '__main__':
-    # get_raw_data('/home/yuquanjie/Documents/icdar2017_crop_center_test', True)
+    get_raw_data('/home/yuquanjie/Documents/shumei_crop_center', True)
+
     test_get_zone_function = False
     if test_get_zone_function:
         test_get_zone()
 
-    write_h5 = True
+    write_h5 = False
     if write_h5:
         jpg_txt_dir = '/home/yuquanjie/Documents/splited_train_data/train_' + sys.argv[1]
         gene_h5_train_file(jpg_txt_dir, sys.argv[1])
