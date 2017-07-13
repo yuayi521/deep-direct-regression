@@ -310,12 +310,12 @@ if __name__ == '__main__':
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # train data, test model using train data
     # all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017rctw_train_v1.2/train/part1')
-    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/icdar2017_crop_center_test')
+    all_imgs, numFileTxt = get_data.get_raw_data('/home/yuquanjie/Documents/shumei_crop_center_test')
     data_gen_train = get_train_data(all_imgs)
     while True:
         X, Y_cls, Y_regr, raw_img, img_data = data_gen_train.next()
         # load model
-        final_model = load_model('model/2017-07-09-14-08-loss-decrease-113-1.02.hdf5',
+        final_model = load_model('model/2017-07-12-19-03-loss-decrease-65-1.05.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         predict_all = final_model.predict_on_batch(1/255.0 * X)
@@ -328,8 +328,6 @@ if __name__ == '__main__':
         one_locs = np.where(predict_cls > 0.7)
         # the pixel of text region on 320 * 320 raw image
         coord = [one_locs[0] * 4, one_locs[1] * 4]
-        # show classification heat map
-        draw_loss.heatmap_cls(predict_cls, img_data)
 
         # 2) regression result
         predict_regr = predict_all[1]
@@ -376,13 +374,13 @@ if __name__ == '__main__':
             dets.append([x1[idx], y1[idx], x2[idx], y2[idx],
                          x3[idx], y3[idx], x4[idx], y4[idx], score[idx]])
         thresh = 0.3
-
         # using nms for all bbox, the remaining bbox's index
         idx_after_nms = []
         if len(x1) > 0:
             idx_after_nms = nms.poly_nms(np.array(dets), thresh)
         else:
             print 'no predicted text region pixel on {0}'.format(img_data['imagePath'])
+
         img = cv2.imread(img_data['imagePath'])
         img_draw = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_draw)
@@ -408,12 +406,25 @@ if __name__ == '__main__':
 
         img_draw = np.array(img_draw)
         img_draw = cv2.cvtColor(img_draw, cv2.COLOR_RGB2BGR)
-
         # get image name excluding directory path using regular expression
         image_name = img_data['imagePath'].split('/')[-1].split('.')[0]
-        image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name + '_useacc' + '.jpg'
-        cv2.imwrite(image_path, img_draw[0: img_draw.shape[0], 0: img_draw.shape[1]])
+        image_path = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name + '' + '.jpg'
+        # show on heatmap
+        # cv2.imwrite(image_path, img_draw[0: img_draw.shape[0], 0: img_draw.shape[1]])
 
+        # only draw classification result
+        img = cv2.imread(img_data['imagePath'])
+        img_cls = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(img_cls)
+        for i in xrange(len(one_locs[0])):
+            # draw predicted text region on raw image(320 * 320)
+            # use the coordinates on the raw image(320 * 320)
+            draw.text(([coord[0][i], coord[1][i]]), "O", "red")
+        img_cls = np.array(img_cls)
+        img_cls = cv2.cvtColor(img_cls, cv2.COLOR_RGB2BGR)
 
+        # show classification heat map
+        fig_name = '/home/yuquanjie/Documents/deep-direct-regression/result/' + image_name + '_heatmap' + '.jpg'
+        draw_loss.heatmap_cls(predict_cls, img_data, img_cls, img_draw, fig_name)
 
 
