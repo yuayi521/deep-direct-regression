@@ -14,7 +14,6 @@ from keras.layers import Input
 from keras.models import Model, load_model
 from keras.preprocessing.image import list_pictures
 from tools.get_data import get_zone
-# from keras.utils.data_utils import Sequence
 import tools.point_check as point_check
 import cv2
 import string
@@ -24,9 +23,6 @@ import re
 import h5py
 import tensorflow as tf
 import datetime
-import keras as ks
-
-# class ICDARSequence(Sequence):
 
 
 def tf_count(t, val):
@@ -253,24 +249,28 @@ def multi_task(input_tensor):
     # return merged
 
 
-def image_generator(list_of_files, crop_size=320, scale=1):
+def image_generator(jpg_list, crop_size=320, scale=1):
     """
     a python generator, read image's text region from txt file
-    :param list_of_files: list, storing all jpg file path
+    :param jpg_list: list, storing all jpg file path
     :param crop_size: cropped image size
     :param scale: normalization parameters
     :return: A list [numpy array, text region list]
     """
+    vis = True
     while True:
+        # store image's text region
         text_region = []
-        jpgname = np.random.choice(list_of_files)
-        img = cv2.imread(jpgname)
+        # choose a image randomly from all images
+        jpg_path = np.random.choice(jpg_list)
+        img_nparr = cv2.imread(jpg_path)
+        # get image's txt file path
         pattern = re.compile('jpg')
-        txtname = pattern.sub('txt', jpgname)
-        if not os.path.isfile(txtname):
+        txt_path = pattern.sub('txt', jpg_path)
+        # ensure jpg file has a correspongding txt file
+        if not os.path.isfile(txt_path):
             continue
-        cropped_image = img
-        with open(txtname, 'r') as f:
+        with open(txt_path, 'r') as f:
             for line in f:
                 line_split = line.strip().split(',')
                 # clockwise
@@ -278,10 +278,23 @@ def image_generator(list_of_files, crop_size=320, scale=1):
                 (x3, y3, x4, y4) = line_split[4:8]
                 text_region.append([string.atof(x1), string.atof(y1), string.atof(x2), string.atof(y2),
                                     string.atof(x3), string.atof(y3), string.atof(x4), string.atof(y4)])
-        if cropped_image is None or text_region is None or \
-                cropped_image.shape[0] != crop_size or cropped_image.shape[1] != crop_size:
+        # ensure jpg and txt file is not empty
+        if img_nparr is None or text_region is None:
             continue
-        yield [scale * cropped_image, text_region]
+        # ensure jpg file's shape is 320 * 320
+        if img_nparr.shape[0] != crop_size or img_nparr.shape[1] != crop_size:
+            continue
+        #       ------------------------------ visualise ------------------------------
+        if vis:
+            print 'txt_path is {0}'.format(txt_path)
+            for bbox in text_region:
+                # coordinates must be int type
+                poly = np.array([[[bbox[0], bbox[1]], [bbox[2], bbox[3]], [bbox[4], bbox[5]], [bbox[6], bbox[7]]]],
+                                dtype=np.int32)
+                cv2.fillPoly(img_nparr, poly, 255)
+            cv2.imshow('img', img_nparr)
+            cv2.waitKey(0)
+        yield [scale * img_nparr, text_region]
 
 
 def image_output_pair(images):
@@ -372,16 +385,30 @@ def group_by_batch(dataset, batch_size):
 
 
 def load_dataset(directory, crop_size=320, batch_size=32):
-    files = list_pictures(directory, 'jpg')
-    generator = image_generator(files, crop_size, scale=1/255.0)
+    """
+    load data from directory
+    :param directory: jpg files directory
+    :param crop_size: cropped image size
+    :param batch_size: batch size
+    :return: python generator object, a batch training data, img, y_cls_mask_lable, y_regr_cls_mask_label
+    """
+    jpg_list = list_pictures(directory, 'jpg')
+    generator = image_generator(jpg_list, crop_size, scale=1/255.0)
     generator = image_output_pair(generator)
     generator = group_by_batch(generator, batch_size)
     return generator
 
 
 if __name__ == '__main__':
-    print ks.__version__
-    # gpu_id = '2'
+    # test
+    jpg_list = list_pictures('/home/yuquanjie/Documents/shumei_crop_center', 'jpg')
+    generator = image_generator(jpg_list, 320, scale=1/255.0)
+    for ite in generator:
+        print 'hello'
+
+
+
+    # test
     gpu_id = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     # define Input
@@ -399,20 +426,20 @@ if __name__ == '__main__':
     # L2 loss
     multask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
     # resume training
-    multask_model = load_model('model/2017-07-06-18-04-loss-decrease-41-1.46.hdf5',
+    multask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
                                custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     use_generator = True
     if use_generator:
         # use python generator to generate training data
-        train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
-        val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center_test', 320, 32)
+        train_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center', 320, 64)
+        val_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center_test', 320, 32)
         date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
         filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}.hdf5"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
         callbacks_list = [checkpoint]
         # fit model
-        multask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
-                                    validation_data=val_set, validation_steps=10, initial_epoch=0)
+        multask_model.fit_generator(train_set, steps_per_epoch=1098 // 64, epochs=10000, callbacks=callbacks_list,
+                                    validation_data=val_set, validation_steps=6, initial_epoch=0)
     else:
         print 'reading data from h5 file .....'
         filenamelist = ['dataset/train_1', 'dataset/train_2', 'dataset/train_3']
