@@ -16,7 +16,6 @@ from keras.preprocessing.image import list_pictures
 from tools.get_data import get_zone
 from matplotlib import pyplot as plt
 import copy
-import simplejson
 import tools.point_check as point_check
 import cv2
 import string
@@ -122,7 +121,7 @@ def my_hinge(y_true, y_pred):
     # sum over all axis, and reduce all dimensions
     loss = tf.reduce_sum(loss_mask) / num_contributed_pixel
     # divide batch_size
-    # loss = loss / tf.to_float(tf.shape(y_true)[0])
+    loss = loss / tf.to_float(tf.shape(y_true)[0])
     return loss
 
 
@@ -163,10 +162,97 @@ def new_smooth(y_true, y_pred):
     # secondly, sum all dimension loss, then divied number of contributed pixel
     loss = tf.reduce_sum(loss) / num_contibuted_pixel
     # thirdly, divide batch_size
-    # loss = loss / tf.to_float(tf.shape(y_true)[0])
+    loss = loss / tf.to_float(tf.shape(y_true)[0])
     # lambda_loc = 0.01
     lambda_loc = 1
     return lambda_loc * loss
+
+
+def multi_task_improve(input_tensor):
+    im_input = BatchNormalization()(input_tensor)
+
+    # conv_1
+    conv1_1 = Convolution2D(32, (5, 5), strides=(1, 1), padding='same',
+                            activation='relu', name='conv1_1')(im_input)
+    pool1 = MaxPooling2D((2, 2), strides=(2, 2), name='pool1')(conv1_1)
+
+    # conv_2
+    conv2_1 = Convolution2D(64, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv2_1')(pool1)
+    conv2_2 = Convolution2D(64, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv2_2')(conv2_1)
+    pool2 = MaxPooling2D((2, 2), strides=(2, 2), name='pool2')(conv2_2)
+
+    # conv_3
+    conv3_1 = Convolution2D(128, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv3_1')(pool2)
+    conv3_2 = Convolution2D(128, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv3_2')(conv3_1)
+    pool3 = MaxPooling2D((2, 2), strides=(2, 2), name='pool3')(conv3_2)
+    # pool3_for_fuse = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
+    #                               activation='relu', name='pool3_for_fuse')(pool3)
+
+    # conv_4
+    conv4_1 = Convolution2D(256, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv4_1')(pool3)
+    conv4_2 = Convolution2D(256, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv4_2')(conv4_1)
+    pool4 = MaxPooling2D((2, 2), strides=(2, 2), name='pool4')(conv4_2)
+    # pool4_for_fuse = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
+    #                                activation='relu', name='pool4_for_fuse')(pool4)
+    pool4_for_fuse = Convolution2D(128, (3, 3), strides=(1, 1), padding='same',
+                                   activation='relu', name='pool4_for_fuse')(pool4)
+
+    # conv_5
+    conv5_1 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv5_1')(pool4)
+    conv5_2 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv5_2')(conv5_1)
+    pool5 = MaxPooling2D((2, 2), strides=(2, 2), name='pool5')(conv5_2)
+    # pool5_for_fuse = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
+    #                                activation='relu', name='pool5_for_fuse')(pool5)
+    pool5_for_fuse = Convolution2D(128, (3, 3), strides=(1, 1), padding='same',
+                                   activation='relu', name='pool5_for_fuse')(pool5)
+
+    # conv_6
+    conv6_1 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv6_1')(pool5)
+    conv6_2 = Convolution2D(512, (3, 3), strides=(1, 1), padding='same',
+                            activation='relu', name='conv6_2')(conv6_1)
+    pool6 = MaxPooling2D((2, 2), strides=(2, 2), name='pool6')(conv6_2)
+
+    #
+    conv7_1 = Convolution2D(128, (1, 1), strides=(1, 1), padding='same',
+                            activation='relu', name='conv7_1')(pool6)
+
+    upscore2 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
+                               strides=(2, 2), padding='valid', use_bias=False,
+                               name='upscore2')(conv7_1)
+
+    fuse_pool5 = add([upscore2, pool5_for_fuse])
+    upscore4 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
+                               strides=(2, 2), padding='valid', use_bias=False,
+                               name='upscore4')(fuse_pool5)
+    fuse_pool4 = add([upscore4, pool4_for_fuse])
+
+    upscore8 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
+                               strides=(2, 2), padding='valid', use_bias=False,
+                               name='upscore8')(fuse_pool4)
+    # fuse_pool3 = add([upscore8, pool3_for_fuse])
+    fuse_pool3 = add([upscore8, pool3])
+
+    upscore16 = Conv2DTranspose(filters=128, kernel_size=(2, 2),
+                                strides=(2, 2), padding='valid', use_bias=False,
+                                name='upscore16')(fuse_pool3)
+    ##########################################################################
+    # shared layer
+    ##########################################################################
+    x_clas = Convolution2D(1, (1, 1), strides=(1, 1), padding='same', name='cls')(upscore16)
+    # x_clas = Convolution2D(1, (1, 1), strides=(1, 1), padding='same', name='cls', activation='sigmoid')(upscore16)
+    x = Convolution2D(128, (1, 1), strides=(1, 1), padding='same', activation='relu')(upscore16)
+    x = Convolution2D(8, (1, 1), strides=(1, 1), padding='same', activation='sigmoid')(x)
+    x_regr = Lambda(lambda t: 800 * t - 400)(x)
+    return [x_clas, x_regr, x]
 
 
 def multi_task(input_tensor):
@@ -472,36 +558,19 @@ if __name__ == '__main__':
         genertor = image_ylabel_generator(genertor)
         for ite in genertor:
             print 'hello'
-    # test
 
     gpu_id = '0'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-    # define Input
+    # define input
     img_input = Input((320, 320, 3))
     # define network
-    multi = multi_task(img_input)
+    multi = multi_task_improve(img_input)
     multitask_model = Model(img_input, multi[0:2])
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
-    # save architecture of model
-    save_architect = False
-    if save_architect:
-        model_json = multitask_model.to_json()
-        with open("model/model_not_sigmoid.json", "w") as json_file:
-            json_file.write(simplejson.dumps(simplejson.loads(model_json), indent=4))
-
-    # resume training, use loading weights, not loading model structure
-    multitask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
-                                 custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
-    """
-    multitask_model.load_weights('model/2017-07-17-10-15-loss-decrease-00-1.05-saved-weights.hdf5')
-
-    model_disk = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
-                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
-    weights_disk = model_disk.get_weights()
-    multitask_model.set_weights(weights_disk)
-    """
-
+    # resume training, use loading weights(not work, still unknowned reason), not loading model structure
+    # multitask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
+    #                             custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     # compile model
     multitask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
 
@@ -518,9 +587,9 @@ if __name__ == '__main__':
             val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center_test', 320, 64)
 
         date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
-        filepath = "model/" + date_time + "-loss-decrease-{epoch:02d}-{loss:.2f}-saved-weights.hdf5"
+        filepath = "model/" + date_time + "-epoch-{epoch:02d}-loss-{loss:.2f}-saved-all-model.hdf5"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True,
-                                     save_weights_only=True, mode='min')
+                                     save_weights_only=False, mode='min')
         callbacks_list = [checkpoint]
         # multitask_model.fit_generator(train_set, steps_per_epoch=17543 // 64, epochs=10000, callbacks=callbacks_list,
         #                            validation_data=val_set, validation_steps=1894//64, initial_epoch=0)
