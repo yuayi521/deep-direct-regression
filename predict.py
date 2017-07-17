@@ -4,7 +4,6 @@
     @version created
     @email   yuquanjie13@gmail.com
 """
-from keras.models import load_model
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -14,6 +13,9 @@ import tools.point_check as point_check
 import tools.nms as nms
 import tools.draw_loss as draw_loss
 from PIL import Image, ImageDraw
+from keras.models import model_from_json
+from keras.models import load_model
+from quiver_engine.server import launch
 
 
 def tf_count(t, val):
@@ -122,25 +124,42 @@ if __name__ == '__main__':
     gpu_id = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
-    all_imgs = glob.glob('/home/yuquanjie/Documents/shumei_crop_center_test/' + '*.jpg')
+    """
+    # load create model
+    json_file = open('model/model.json', 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    multitask_model = model_from_json(loaded_model_json)
+
+    # load weights
+    # multitask_model.load_weights('model/2017-07-13-18-34-loss-decrease-23-5.19-saved-weights.hdf5')
+
+    model_disk = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
+                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+    weights_disk = model_disk.get_weights()
+    multitask_model.set_weights(weights_disk)
+    """
+
+    multitask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
+                                 custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+    launch(multitask_model, input_folder='./img', port=5000)
+
+    # all_imgs = glob.glob('/home/yuquanjie/Documents/shumei_crop_center_test/' + '*.jpg')
+    all_imgs = glob.glob('/home/yuquanjie/Documents/icdar2017_crop_center/' + '*.jpg')
     # python generator
     data_gen_pred = get_pred_img(all_imgs)
     while True:
         X, img_data = data_gen_pred.next()
-        # load model, load model structure and weights
-        final_model = load_model('model/2017-07-12-19-03-loss-decrease-65-1.05.hdf5',
-                                 custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
         # predict
         X = np.expand_dims(X, axis=0)
-        predict_all = final_model.predict_on_batch(1/255.0 * X)
+        predict_all = multitask_model.predict_on_batch(1/255.0 * X)
         # 1) classification result
         predict_cls = predict_all[0]
-        print 'predict_cls--->{0}'.format(predict_cls)
         # reduce dimension from (1, 80, 80, 1) to (80, 80)
         predict_cls = np.sum(predict_cls, axis=-1)
         predict_cls = np.sum(predict_cls, axis=0)
         # the pixel of text region on 80 * 80 feature map
-        one_locs = np.where(predict_cls > 0.7)
+        one_locs = np.where(predict_cls > 0.6)
         # the pixel of text region on 320 * 320 raw image
         coord = [one_locs[0] * 4, one_locs[1] * 4]
 
