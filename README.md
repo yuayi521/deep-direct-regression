@@ -19,4 +19,9 @@
 3. Read paper: Fully Convolutional Networks for Semantic Segmentation
     - [ ] 什么叫做receptive fields 
         - [ ] Locations in higher layers correspond to the locations in the image they are path-connected to, which are called their receptive fields. 
+        - [ ] we add skips between layers to fuse 
+            * coarse  
+            * semantic  
+            * local   
+            * appearance information
 
