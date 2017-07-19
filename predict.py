@@ -140,7 +140,10 @@ if __name__ == '__main__':
     multitask_model.set_weights(weights_disk)
     """
 
-    multitask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
+    # multitask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
+    #                            custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
+
+    multitask_model = load_model('model/2017-07-17-18-43-epoch-16-loss-6.78-saved-all-model.hdf5',
                                  custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     launch(multitask_model, input_folder='./img', port=5000)
 
