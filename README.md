@@ -10,10 +10,10 @@
     - [ ] crop from sacled image
     - [ ] rotate
 
-###2017年07月19日12:11:28
+### 2017年07月19日12:11:28
 1. icdar2017 data augmentation
 2. 学习keras fcn
     - [ ] 看看fcn的上采样的图
     - [ ] fcn resume training 好用吗？
     - [ ] fcn的fit_generator与fit相比的训练速度
-    - [ ] 
+
