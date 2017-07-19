@@ -2,4 +2,4 @@
 deep direct methon
 
 ### todo
-- []  loss / batch_size is strange (2017-07-19)
+-[]  loss / batch_size is strange (2017-07-19)
