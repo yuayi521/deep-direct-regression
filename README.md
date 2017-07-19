@@ -17,6 +17,6 @@
     - [ ] fcn resume training 好用吗？
     - [ ] fcn的fit_generator与fit相比的训练速度
 3. Read paper: Fully Convolutional Networks for Semantic Segmentation
-    - [ ] 什么叫做receptive fields
-         Locations in higher layers correspond to the locations in the image they are path-connected to, which are called their receptive fields. 
+    - [ ] 什么叫做receptive fields 
+        - [ ]Locations in higher layers correspond to the locations in the image they are path-connected to, which are called their receptive fields. 
 
