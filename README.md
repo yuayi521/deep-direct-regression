@@ -29,3 +29,15 @@
         - [ ] per-pixel multinomial logistic loss
     - [ ] 最后是一个分类问题吗？把图片分为21类？？ 
 
+### 2017-07-20 11:51:22
+
+
+### Python 技巧
+- [ ] 
+    '''
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    save_path = os.path.join(current_dir, 'Models/' + model_name_)
+    # I should learn this method
+    if os.path.exists(save_path) is False:
+        os.mkdir(save_path)
+    '''
