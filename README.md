@@ -45,3 +45,11 @@
     if os.path.exists(save_path) is False:   
         os.mkdir(save_path)   
     ```
+
+### Keras
+- [ ] from keras.preprocessing.image import image, 这个图像预处理工具包，挺有用的
+    - [ ] img_to_arr
+    - [ ] arr_to_img
+    - [ ] list_pictures
+    - [ ] DirectoryIterators class
+        - [ ] 迭代器，能从硬盘上读取图片
