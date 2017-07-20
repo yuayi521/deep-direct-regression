@@ -36,7 +36,8 @@
 ### Python 技巧
 - [ ]
     - [ ] os.path.realpath(path)
-        - [ ] Return the canonical path of the specified filename, eliminating any symbolic links encountered in the path     
+        - [ ] Return the canonical(权威的) path of the specified filename, eliminating any symbolic links encountered in the path     
+    - [ ] 在python下，获取当前执行主脚本的方法有两个：sys.argv[0]和 __file__
     ```   
     current_dir = os.path.dirname(os.path.realpath(__file__))   
     save_path = os.path.join(current_dir, 'Models/' + model_name_)   
