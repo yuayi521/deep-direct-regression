@@ -9,7 +9,7 @@
     - [x] crop 320 * 320
     - [ ] crop from sacled image
     - [x] rotate
-    - [ ] 网络参数初始化，有一次resume training, loss突然飘的特别高
+- [ ] 网络参数初始化，有一次resume training, loss突然飘的特别高
 
 ### 2017年07月19日12:11:28
 - [ ] icdar2017 data augmentation
