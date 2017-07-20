@@ -12,12 +12,12 @@
     - [ ] 网络参数初始化，有一次resume training, loss突然飘的特别高
 
 ### 2017年07月19日12:11:28
--[ ] icdar2017 data augmentation
--[ ] 学习keras fcn
+- [ ] icdar2017 data augmentation
+- [ ] 学习keras fcn
     - [ ] 看看fcn的上采样的图, 有没有分块
     - [ ] fcn resume training 好用吗？
     - [ ] fcn的fit_generator与fit相比的训练速度
--[ ] Read paper: Fully Convolutional Networks for Semantic Segmentation
+- [ ] Read paper: Fully Convolutional Networks for Semantic Segmentation
     - [ ] 什么叫做receptive fields 
         - [ ] Locations in higher layers correspond to the locations in the image they are path-connected to, which are called their receptive fields. 
     - [ ] we add skips between layers to fuse 
@@ -28,7 +28,6 @@
     - [ ] loss是什么？
         - [ ] per-pixel multinomial logistic loss
     - [ ] 最后是一个分类问题吗？把图片分为21类？？ 
-
 
 
 ### 2017-07-20 11:51:22
