@@ -35,10 +35,10 @@
 
 ### Python 技巧
 - [ ]    
-    '''   
+    ```   
     current_dir = os.path.dirname(os.path.realpath(__file__))   
     save_path = os.path.join(current_dir, 'Models/' + model_name_)   
     \# I should learn this method   
     if os.path.exists(save_path) is False:   
         os.mkdir(save_path)   
-    '''
+    ```
