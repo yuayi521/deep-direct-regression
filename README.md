@@ -20,9 +20,12 @@
 -[ ] Read paper: Fully Convolutional Networks for Semantic Segmentation
     - [ ] 什么叫做receptive fields 
         - [ ] Locations in higher layers correspond to the locations in the image they are path-connected to, which are called their receptive fields. 
-        - [ ] we add skips between layers to fuse 
-            * coarse  
-            * semantic  
-            * local   
-            * appearance information
+    - [ ] we add skips between layers to fuse 
+        * coarse  
+        * semantic  
+        * local   
+        * appearance information
+    - [ ] loss是什么？
+        - [ ] per-pixel multinomial logistic loss
+    - [ ] 最后是一个分类问题吗？把图片分为21类？？ 
 
