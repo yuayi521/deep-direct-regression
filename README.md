@@ -34,7 +34,9 @@
 
 
 ### Python 技巧
-- [ ]    
+- [ ]
+    - [ ] os.path.realpath(path)
+        - [ ] Return the canonical path of the specified filename, eliminating any symbolic links encountered in the path     
     ```   
     current_dir = os.path.dirname(os.path.realpath(__file__))   
     save_path = os.path.join(current_dir, 'Models/' + model_name_)   
