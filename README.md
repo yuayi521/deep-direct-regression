@@ -34,6 +34,33 @@
     - [ ] padding的目的和作用,我大概明白了
         - [ ]
             ```
+            a = np.ones((4, 3, 2))
+            # npad is a tuple of (n_before, n_after) for each dimension
+            npad = ((0, 0), (1, 2), (2, 1))
+            b = np.pad(a, pad_width=npad, mode='constant', constant_values=0)
+
+            [[[ 1 1 ]
+              [ 1 1 ]
+              [ 1 1 ]]
+              [[ 1 1 ]
+              [ 1 1 ]
+              [ 1 1 ]]
+              [[ 1 1 ]
+              [ 1 1 ]
+              [ 1 1 ]]]
+            for dimension 1, (0, 0) 左边补充0个，右边补充0个
+            for dimension 2, (1, 2) , 左边补充1个，右边补充2个
+                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
+                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
+                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
+            for dimension 3, (2, 1) [1 1], 左边补充1个，右边补充2个
+                                    [0, 0] ---> [0, 0, 0, 0, 0]
+                                    [1, 1] ---> [0, 0, 1, 1, 0]
+                                    ..............
+                                    [0, 0] ---> [0, 0, 0, 0, 0]
+            ```
+        - [ ] 先来看看np.pad是怎么使用的
+            ```
             # do padding
             if self.target_size:                                                # (320, 320)
                 if self.crop_mode != 'none':                                    # random
@@ -61,35 +88,8 @@
                   else:
                       print('ERROR: resize not implemented for label npy file')
             ```
-        - [ ] 
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/1_.png)
-        - [ ] 先来看看np.pad是怎么使用的
-            ```
-            a = np.ones((4, 3, 2))
-            # npad is a tuple of (n_before, n_after) for each dimension
-            npad = ((0, 0), (1, 2), (2, 1))
-            b = np.pad(a, pad_width=npad, mode='constant', constant_values=0)
 
-            [[[ 1 1 ]
-              [ 1 1 ]
-              [ 1 1 ]]
-              [[ 1 1 ]
-              [ 1 1 ]
-              [ 1 1 ]]
-              [[ 1 1 ]
-              [ 1 1 ]
-              [ 1 1 ]]]
-            for dimension 1, (0, 0) 左边补充0个，右边补充0个
-            for dimension 2, (1, 2) , 左边补充1个，右边补充2个
-                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
-                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
-                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
-            for dimension 3, (2, 1) [1 1], 左边补充1个，右边补充2个
-                                    [0, 0] ---> [0, 0, 0, 0, 0]
-                                    [1, 1] ---> [0, 0, 1, 1, 0]
-                                    ..............
-                                    [0, 0] ---> [0, 0, 0, 0, 0]
-            ```
 
 ### 2017-07-20 11:51:22
 
