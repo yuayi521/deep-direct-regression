@@ -31,7 +31,7 @@
         - [ ] per-pixel multinomial logistic loss
     - [ ] 最后是一个分类问题吗？把图片分为21类？？ 
 - [ ] FCN-keras 实现
-    - [ ] padding的目的和作用,我大概明白了
+    - [ ] ~~ padding的目的和作用,我大概明白了 ~~
         - [ ]
             ```
           ~~# do padding ~~
