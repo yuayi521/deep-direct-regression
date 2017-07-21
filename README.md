@@ -61,6 +61,8 @@
                   else:
                       print('ERROR: resize not implemented for label npy file')
             ```
+        - [ ] 
+            ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/1_.png)
         - [ ] 先来看看np.pad是怎么使用的
             ```
             a = np.ones((4, 3, 2))
