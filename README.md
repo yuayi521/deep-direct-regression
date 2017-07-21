@@ -73,6 +73,7 @@
             y = np.lib.pad(y, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=self.label_cval)
             ```
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/1_.png)
+            ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/2.png)
 
 
 ### 2017-07-20 11:51:22
