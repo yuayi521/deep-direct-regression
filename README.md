@@ -34,7 +34,7 @@
     - [ ] padding的目的和作用,我大概明白了
         - [ ]
             ```
-            # do padding
+           <del> # do padding </del>
             if self.target_size:                                                # (320, 320)
                 if self.crop_mode != 'none':                                    # random
                     # convert x and y image to array mode
