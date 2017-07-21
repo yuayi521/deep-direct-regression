@@ -6,13 +6,14 @@
     - [ ] [e.g. Kaggle Galaxy Zoo challenge](http://benanne.github.io/2014/04/05/galaxy-zoo.html)
     - [ ] [paper](https://arxiv.org/pdf/1503.07077.pdf)
         * 可视化了很多层，网络可视化做的不错，有时间读一下 
-    - [x] crop 320 * 320
+    - [x] ~~crop 320 * 320~~
     - [ ] crop from sacled image
-    - [x] rotate
+    - [x] ~~rotate~~
 - [ ] 网络参数初始化，有一次resume training, loss突然飘的特别高
 
 ### 2017年07月19日12:11:28
-- [ ] icdar2017 data augmentation
+- [ ] ~~icdar2017 data augmentation~~
+    - [ ] ~~rotate~~
 - [ ] 学习keras fcn
     - [ ] 看看fcn的上采样的图, 有没有分块
     - [ ] fcn resume training 好用吗？
