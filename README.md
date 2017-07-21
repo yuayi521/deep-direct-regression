@@ -37,12 +37,32 @@
             x = np.lib.pad(x, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=0.)
             y = np.lib.pad(y, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=self.label_cval)
             ```
-        - [ ]
+        - [ ] 先来看看np.pad是怎么使用的
             ```
             a = np.ones((4, 3, 2))
             # npad is a tuple of (n_before, n_after) for each dimension
             npad = ((0, 0), (1, 2), (2, 1))
             b = np.pad(a, pad_width=npad, mode='constant', constant_values=0)
+
+            [[[ 1 1 ]
+              [ 1 1 ]
+              [ 1 1 ]]
+              [[ 1 1 ]
+              [ 1 1 ]
+              [ 1 1 ]]
+              [[ 1 1 ]
+              [ 1 1 ]
+              [ 1 1 ]]]
+            for dimension 1, (0, 0) 左边补充0个，右边补充0个
+            for dimension 2, (1, 2) , 左边补充1个，右边补充2个
+                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
+                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
+                                    [[1 1], [1 1], [1 1]]  --- > [[0 0], [1 1], [1 1], [1 1], [0 0], [0 0]]
+            for dimension 3, (2, 1) [1 1], 左边补充1个，右边补充2个
+                                    [0, 0] ---> [0, 0, 0, 0, 0]
+                                    [1, 1] ---> [0, 0, 1, 1, 0]
+                                    ..............
+                                    [0, 0] ---> [0, 0, 0, 0, 0]
             ```
 
 ### 2017-07-20 11:51:22
