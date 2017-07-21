@@ -31,11 +31,19 @@
         - [ ] per-pixel multinomial logistic loss
     - [ ] 最后是一个分类问题吗？把图片分为21类？？ 
 - [ ] FCN-keras 实现
-    - [ ] padding的目的和作用我大概明白了
-        ```
-        x = np.lib.pad(x, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=0.)
-        y = np.lib.pad(y, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=self.label_cval)
-        ```
+    - [ ] padding的目的和作用,我大概明白了
+        - [ ]
+            ```
+            x = np.lib.pad(x, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=0.)
+            y = np.lib.pad(y, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=self.label_cval)
+            ```
+        - [ ]
+            ```
+            a = np.ones((4, 3, 2))
+            # npad is a tuple of (n_before, n_after) for each dimension
+            npad = ((0, 0), (1, 2), (2, 1))
+            b = np.pad(a, pad_width=npad, mode='constant', constant_values=0)
+            ```
 
 ### 2017-07-20 11:51:22
 
