@@ -62,31 +62,15 @@
         - [ ] 先来看看np.pad是怎么使用的
             ```
             # do padding
-            if self.target_size:                                                # (320, 320)
-                if self.crop_mode != 'none':                                    # random
-                    # convert x and y image to array mode
-                    x = img_to_array(img, data_format=self.data_format)         # channels_last
-                    if self.label_file_format is not 'npy':
-                        y = img_to_array(label, data_format=self.data_format).astype(int)
-                    img_w, img_h = img.size
-                  if self.pad_size:                                           # None
-                      pad_w = max(self.pad_size[1] - img_w, 0)
-                      pad_h = max(self.pad_size[0] - img_h, 0)
-                    else:
-                        pad_w = max(self.target_size[1] - img_w, 0)             # 320 - 500
-                        pad_h = max(self.target_size[0] - img_h, 0)             # 320 - 375
-                  if self.data_format == 'channels_first':
-                      x = np.lib.pad(x, ((0, 0), (pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2)), 'constant', constant_values=0.)
-                      y = np.lib.pad(y, ((0, 0), (pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2)),'constant', constant_values=self.label_cval)
-                    elif self.data_format == 'channels_last':
-                        x = np.lib.pad(x, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=0.)
-                        y = np.lib.pad(y, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=self.label_cval)
-              else:
-                  x = img_to_array(img.resize((self.target_size[1], self.target_size[0]),Image.BILINEAR),data_format=self.data_format)
-                  if self.label_file_format is not 'npy':
-                      y = img_to_array(label.resize((self.target_size[1], self.target_size[0]), Image.NEAREST), data_format=self.data_format).astype(int)
-                  else:
-                      print('ERROR: resize not implemented for label npy file')
+            # convert x and y to array mode
+            x = img_to_array(img, data_format=self.data_format)         # channels_last
+            y = img_to_array(label, data_format=self.data_format).astype(int)
+            img_w, img_h = img.size
+
+            pad_w = max(self.target_size[1] - img_w, 0)             # 320 - 500
+            pad_h = max(self.target_size[0] - img_h, 0)             # 320 - 375
+            x = np.lib.pad(x, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=0.)
+            y = np.lib.pad(y, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=self.label_cval)
             ```
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/1_.png)
 
