@@ -17,6 +17,8 @@
     - [ ] 看看fcn的上采样的图, 有没有分块
     - [ ] fcn resume training 好用吗？
     - [ ] fcn的fit_generator与fit相比的训练速度
+
+
 - [ ] Read paper: Fully Convolutional Networks for Semantic Segmentation
     - [ ] 什么叫做receptive fields 
         - [ ] Locations in higher layers correspond to the locations in the image they are path-connected to, which are called their receptive fields. 
@@ -28,7 +30,12 @@
     - [ ] loss是什么？
         - [ ] per-pixel multinomial logistic loss
     - [ ] 最后是一个分类问题吗？把图片分为21类？？ 
-
+- [ ] FCN-keras 实现
+    - [ ] padding的目的和作用我大概明白了
+        ```
+        x = np.lib.pad(x, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=0.)
+        y = np.lib.pad(y, ((pad_h / 2, pad_h - pad_h / 2), (pad_w / 2, pad_w - pad_w / 2), (0, 0)), 'constant', constant_values=self.label_cval)
+        ```
 
 ### 2017-07-20 11:51:22
 
