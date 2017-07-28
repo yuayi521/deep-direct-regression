@@ -91,7 +91,7 @@
                 x[:, :, :, 2] -= 123.68
                 plt.show()
                 ```
-            ![]()
+            ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/3_.png)
 
 ### 2017-07-20 11:51:22
 
