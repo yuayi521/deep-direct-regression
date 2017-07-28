@@ -91,6 +91,7 @@
         plt.show()
         ```
         ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/3_.png)
+
             * 把(320, 320)第一个通道的每个像素值都减去了103
             * 原来所有的像素值差不多是以255/2为中心，所有的像素值对称
             * zero-center by mean pixel之后是以0位中心，所有的像素值对称
