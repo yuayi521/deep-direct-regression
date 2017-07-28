@@ -92,7 +92,7 @@
     if os.path.exists(save_path) is False:   
         os.mkdir(save_path)   
     ```
-- [ ] 关于[matplotlib](http://matplotlib.org/users/image_tutorial.html)，python的图片处理的库，应该主要是输出图片
+- [ ] 关于[matplotlib](http://matplotlib.org/users/image_tutorial.html)，(好像还可以输出热点图heatmap，有时间仔细研究一下), python的图片处理的库，应该主要是输出图片
     - [ ] png图片(320, 320, 1) 直接使用plt.imshow(y)，会报错，原因是应该把3维的数组，压缩为2维的
         * plt.imshow(y[:, :, 0])
         * plt.imshow(y.squeeze)
