@@ -77,7 +77,6 @@
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/2.png)
 
     - [ ] Zero-center by mean pixel         
-            - [ ]           
                 ```
                 x = x[:, :, :, ::-1]
                 plt.subplot(221)
