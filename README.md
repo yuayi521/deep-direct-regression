@@ -76,22 +76,21 @@
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/1_.png)
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/2.png)
 
-    - [ ] Zero-center by mean pixel         
-            ```
-            x = x[:, :, :, ::-1]
-            plt.subplot(221)
-            print x[0, :, :, 0]
-            plt.plot(np.arange(320 * 320), x[0, :, :, 0].flatten(), ".")
-            # Zero-center by mean pixel
-            # plt.subplot(222)
-            x[:, :, :, 0] -= 103.939
-            plt.plot(np.arange(320 * 320), x[0, :, :, 0].flatten(), ".")
-            x[:, :, :, 1] -= 116.779
-            x[:, :, :, 2] -= 123.68
-            plt.show()
-            ```
-
-            ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/3_.png)
+    - [ ] Zero-center by mean pixel  
+        ```
+        x = x[:, :, :, ::-1]
+        plt.subplot(221)
+        print x[0, :, :, 0]
+        plt.plot(np.arange(320 * 320), x[0, :, :, 0].flatten(), ".")
+        # Zero-center by mean pixel
+        # plt.subplot(222)
+        x[:, :, :, 0] -= 103.939
+        plt.plot(np.arange(320 * 320), x[0, :, :, 0].flatten(), ".")
+        x[:, :, :, 1] -= 116.779
+        x[:, :, :, 2] -= 123.68
+        plt.show()
+        ```
+        ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/3_.png)
 
 ### 2017-07-20 11:51:22
 
