@@ -32,7 +32,7 @@
         - [ ] per-pixel multinomial logistic loss
     - [ ] 最后是一个分类问题吗？把图片分为21类？？ 
 - [ ] FCN-keras 实现
-    - [ ] padding的目的和作用,我大概明白了
+    1. padding的目的和作用,我大概明白了
         - [ ]
             ```
             a = np.ones((4, 3, 2))
@@ -76,7 +76,7 @@
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/1_.png)
             ![](https://github.com/yuayi521/deep-direct-regression/blob/master/png/2.png)
 
-    - [ ] Zero-center by mean pixel  
+    2. Zero-center by mean pixel  
         ```
         x = x[:, :, :, ::-1]
         plt.subplot(221)
