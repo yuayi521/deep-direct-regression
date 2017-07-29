@@ -121,7 +121,7 @@ def my_hinge(y_true, y_pred):
     # sum over all axis, and reduce all dimensions
     loss = tf.reduce_sum(loss_mask) / num_contributed_pixel
     # divide batch_size
-    loss = loss / tf.to_float(tf.shape(y_true)[0])
+    # loss = loss / tf.to_float(tf.shape(y_true)[0])
     return loss
 
 
@@ -162,7 +162,7 @@ def new_smooth(y_true, y_pred):
     # secondly, sum all dimension loss, then divied number of contributed pixel
     loss = tf.reduce_sum(loss) / num_contibuted_pixel
     # thirdly, divide batch_size
-    loss = loss / tf.to_float(tf.shape(y_true)[0])
+    # loss = loss / tf.to_float(tf.shape(y_true)[0])
     # lambda_loc = 0.01
     lambda_loc = 1
     return lambda_loc * loss
@@ -551,28 +551,45 @@ def load_dataset(directory, crop_size=320, batch_size=32):
 
 
 if __name__ == '__main__':
-    # test
-    if False:
-        jpg_l = list_pictures('/home/yuquanjie/Documents/shumei_crop_center', 'jpg')
-        genertor = img_txtreg_generator(jpg_l, 320, scale=1/255.0)
-        genertor = image_ylabel_generator(genertor)
-        for ite in genertor:
-            print 'hello'
-
-    gpu_id = '0'
+    gpu_id = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+
+    model_name = 'multi_task'
+    batch_size = 64
+    batch_momentum = 0.9
+    epoches = 300
+    lr = 4e-4
+    resume_training = False
+    target_size = (320, 320)
+    dataset = 'ICDAR'
+    if dataset == 'ICDAR':
+        train_file_path = os.path.expanduser('/home/yuquanjie/Documents/Dataset/icdar/icdar/train.txt')
+        val_file_path = os.path.expanduser('/home/yuquanjie/Documents/Dataset/icdar/icdar/val.txt')
+        data_dir = os.path.expanduser('/home/yuquanjie/Documents/Dataset/icdar/icdar/data')
+        label_dir = os.path.expanduser('/home/yuquanjie/Documents/Dataset/icdar/icdar/data')
+        data_suffix = '.jpg'
+        label_suffix = '.png'
+
+    if dataset == 'SHUMEI':
+        print '2'
+
+
+
+
+
     # define input
     img_input = Input((320, 320, 3))
     # define network
-    multi = multi_task_improve(img_input)
+    # multi = multi_task_improve(img_input)
+    multi = multi_task(img_input)
     multitask_model = Model(img_input, multi[0:2])
     # define optimizer
     sgd = optimizers.SGD(lr=0.01, decay=4e-4, momentum=0.9)
-    # resume training, use loading weights(not work, still unknowned reason), not loading model structure
-    # multitask_model = load_model('model/2017-07-09-14-53-loss-decrease-171-0.89.hdf5',
-    #                             custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
     # compile model
     multitask_model.compile(loss=[my_hinge, new_smooth], optimizer=sgd)
+    # resume training, use loading weights(not work, still unknowned reason), not loading model structure
+    multitask_model = load_model('model/2017-07-19-18-46-epoch-110-loss-4.09-saved-all-model.hdf5',
+                                 custom_objects={'my_hinge': my_hinge, 'new_smooth': new_smooth})
 
     use_generator = True
     if use_generator:
@@ -583,18 +600,16 @@ if __name__ == '__main__':
             val_set = load_dataset('/home/yuquanjie/Documents/shumei_crop_center', 320, 64)
         else:
             # icdar data
-            train_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center', 320, 64)
-            val_set = load_dataset('/home/yuquanjie/Documents/icdar2017_crop_center_test', 320, 64)
+            train_set = load_dataset('/home/yuquanjie/Documents/Dataset/icdar/crop_center_rotated', 320, 64)
+            val_set = load_dataset('/home/yuquanjie/Documents/Dataset/icdar/crop_center_rotated_test', 320, 64)
 
         date_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
         filepath = "model/" + date_time + "-epoch-{epoch:02d}-loss-{loss:.2f}-saved-all-model.hdf5"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True,
                                      save_weights_only=False, mode='min')
         callbacks_list = [checkpoint]
-        # multitask_model.fit_generator(train_set, steps_per_epoch=17543 // 64, epochs=10000, callbacks=callbacks_list,
-        #                            validation_data=val_set, validation_steps=1894//64, initial_epoch=0)
         multitask_model.fit_generator(train_set, steps_per_epoch=100, epochs=10000, callbacks=callbacks_list,
-                                      initial_epoch=0)
+                                      validation_data=val_set, validation_steps=1508 // 64, initial_epoch=114)
     else:
         print 'reading data from h5 file .....'
         filenamelist = ['dataset/train_1', 'dataset/train_2', 'dataset/train_3']
